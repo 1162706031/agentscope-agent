@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  agent:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # DeepSeek API 配置 - 请替换为你的 Key
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-your-key-here}
+      - DEEPSEEK_BASE_URL=https://api.deepseek.com
+      - MODEL_NAME=deepseek-chat
+      - PORT=8080
+    restart: unless-stopped
