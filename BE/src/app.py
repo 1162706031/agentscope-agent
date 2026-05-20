@@ -3,6 +3,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from agent import SessionManager
@@ -51,6 +52,15 @@ async def lifespan(app: FastAPI):
     print("AgentScope Agent shutting down...")
 
 app = FastAPI(lifespan=lifespan)
+
+# CORS 配置（允许前端开发时的跨域请求）
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def verify_api_key(api_key: str) -> dict:

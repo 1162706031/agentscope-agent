@@ -1,5 +1,11 @@
 # ==================== 配置 ====================
 import os
+from pathlib import Path
+
+# 加载 .env 文件（BE/.env）
+from dotenv import load_dotenv
+_env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(_env_path)
 
 
 class Config:
@@ -8,6 +14,8 @@ class Config:
     DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")  # 加上 /v1
     MODEL_NAME = os.getenv("MODEL_NAME", "deepseek-chat")
     PORT = int(os.getenv("PORT", 8080))
+    # Agent 角色：对应 agents/ 目录下的子文件夹名
+    AGENT_ROLE = os.getenv("AGENT_ROLE", "default")
     
     # 前端认证 Key
     VALID_API_KEYS = {

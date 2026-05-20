@@ -5,8 +5,43 @@ from agentscope.agent import ReActAgent
 from agentscope.model import OpenAIChatModel  # DeepSeek 兼容 OpenAI API
 from agentscope.formatter import OpenAIChatFormatter
 from agentscope.memory import InMemoryMemory
+from agentscope.tool import (
+    Toolkit,
+    view_text_file,
+    write_text_file,
+    insert_text_file,
+)
 from config import Config
+from prompt_loader import (
+    load_agent_prompt,
+    get_memory_context_prompt,
+    SKILLS_DIR,
+)
 from typing import Dict, Optional
+
+
+def _build_sys_prompt(role: str) -> str:
+    """构建完整的系统提示词：人设 + 技能提示 + memory 路径上下文"""
+    persona = load_agent_prompt(role)
+    memory_ctx = get_memory_context_prompt(role)
+    return persona + memory_ctx
+
+
+def _create_toolkit() -> Toolkit:
+    """创建并配置 Toolkit，注册内置工具和 Agent 技能"""
+    toolkit = Toolkit()
+
+    # 注册内置文本文件工具（用于 memory 技能读写 MEMORY.md）
+    toolkit.register_tool_function(view_text_file)
+    toolkit.register_tool_function(write_text_file)
+    toolkit.register_tool_function(insert_text_file)
+
+    # 注册 agent skill 目录
+    for skill_dir in SKILLS_DIR.iterdir():
+        if skill_dir.is_dir() and not skill_dir.name.startswith("."):
+            toolkit.register_agent_skill(str(skill_dir))
+
+    return toolkit
 
 
 class AgentSession:
@@ -17,6 +52,13 @@ class AgentSession:
         self.user_id = user_id
         self.created_at = datetime.now()
         self.last_accessed = datetime.now()
+
+        toolkit = _create_toolkit()
+
+        sys_prompt = _build_sys_prompt(Config.AGENT_ROLE)
+        skill_prompt = toolkit.get_agent_skill_prompt()
+        if skill_prompt:
+            sys_prompt += "\n\n" + skill_prompt
 
         # 创建 Agent 实例（每个会话复用）
         self.agent = ReActAgent(
@@ -32,8 +74,9 @@ class AgentSession:
                 },
                 stream=True,
             ),
-            sys_prompt="你是一个乐于助人的好帮手，协助用户解答问题。要用中文回答。",
+            sys_prompt=sys_prompt,
             memory=InMemoryMemory(),
+            toolkit=toolkit,
             formatter=OpenAIChatFormatter(),
         )
         self.agent.set_console_output_enabled(False)
@@ -48,18 +91,15 @@ class AgentSession:
 class SessionManager:
     def __init__(self):
         self._sessions: Dict[str, AgentSession] = {}
-        self._api_key_to_session: Dict[str, str] = {}
+        self._api_key_to_sessions: Dict[str, set] = {}  # 一个 api_key 可以有多个 session
 
     def create_session(self, api_key: str, user_id: str) -> AgentSession:
-        if api_key in self._api_key_to_session:
-            old_id = self._api_key_to_session[api_key]
-            self._sessions.pop(old_id, None)
-            del self._api_key_to_session[api_key]
-
         session_id = str(uuid.uuid4())
         session = AgentSession(session_id, user_id)
         self._sessions[session_id] = session
-        self._api_key_to_session[api_key] = session_id
+        if api_key not in self._api_key_to_sessions:
+            self._api_key_to_sessions[api_key] = set()
+        self._api_key_to_sessions[api_key].add(session_id)
         return session
 
     def get_session(self, session_id: str) -> Optional[AgentSession]:
@@ -74,21 +114,21 @@ class SessionManager:
     def remove_session(self, session_id: str):
         if session_id in self._sessions:
             del self._sessions[session_id]
-            keys_to_remove = [k for k, v in self._api_key_to_session.items() if v == session_id]
-            for k in keys_to_remove:
-                del self._api_key_to_session[k]
+            for api_key, session_ids in self._api_key_to_sessions.items():
+                if session_id in session_ids:
+                    session_ids.discard(session_id)
+                    if not session_ids:
+                        del self._api_key_to_sessions[api_key]
+                    break
 
     def get_active_count(self) -> int:
         return len(self._sessions)
 
     def cleanup_expired_sessions(self):
         """清理所有过期 Session"""
-        expired_sessions = []
-        for session_id, session in self._sessions.items():
-            if session.is_expired():
-                expired_sessions.append(session_id)
-
+        expired_sessions = [
+            sid for sid, s in self._sessions.items() if s.is_expired()
+        ]
         for session_id in expired_sessions:
             self.remove_session(session_id)
-
         return len(expired_sessions)
