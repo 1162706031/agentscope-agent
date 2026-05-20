@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 
-# 加载 .env 文件（BE/.env）
+# 加载 .env 文件（BE/.env） ////测试的时候加上
 from dotenv import load_dotenv
 _env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(_env_path)
