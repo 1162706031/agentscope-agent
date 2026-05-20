@@ -12,7 +12,7 @@ import sys
 from typing import Optional
 
 # 配置
-BASE_URL = "http://localhost:8080"
+BASE_URL = "http://localhost:8088"  # 后端服务地址
 API_KEY = "sk-frontend-001"  # 使用你配置的前端认证 Key
 
 
