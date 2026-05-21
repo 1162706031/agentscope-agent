@@ -1,5 +1,6 @@
 
 import asyncio
+import json
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException
@@ -92,46 +93,80 @@ async def authenticate(request: AuthRequest):
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """对话：使用 session_id 复用 Agent"""
+    """对话：使用 session_id 复用 Agent，同步等待完整回复"""
     session = session_manager.get_session(request.session_id)
     if not session:
-        raise HTTPException(
-            status_code=401, detail="Session expired, please re-authenticate")
+        raise HTTPException(status_code=404, detail="Session not found or expired")
 
-    # 构建 AgentScope 消息格式
-    user_msg = Msg(name="user", role="user", content=request.message)
-
-    # 调用 Agent（非流式）
-    response = await session.agent(user_msg)
-
-    content = response.get_text_content() if response else "No response"
+    msg = Msg("user", request.message, "user")
+    reply = await session.agent(msg)
 
     return ChatResponse(
-        session_id=session.session_id,
-        content=content,
-        role="assistant"
+        session_id=request.session_id,
+        content=reply.get_text_content() or "",
+        role="assistant",
     )
 
 
-@app.post("/chat/stream")
+@app.post("/chat/stream", response_class=StreamingResponse)
 async def chat_stream(request: ChatRequest):
-    """流式对话：使用 session_id，复用 Agent"""
+    """流式对话：通过 msg_queue 实时推送 Agent 生成的文本"""
     session = session_manager.get_session(request.session_id)
     if not session:
-        raise HTTPException(
-            status_code=401, detail="Session expired, please re-authenticate")
+        raise HTTPException(status_code=404, detail="Session not found or expired")
 
-    user_msg = Msg(name="user", role="user", content=request.message)
+    agent = session.agent
+    # 为每个流式请求创建独立队列，避免残留消息干扰
+    queue: asyncio.Queue = asyncio.Queue(maxsize=100)
+    agent.set_msg_queue_enabled(True, queue=queue)
 
-    async def generate():
-        response = await session.agent(user_msg)
-        if response:
-            text = response.get_text_content()
-            if text:
-                yield f"data: {text}\n\n"
-        yield "data: [DONE]\n\n"
+    async def event_generator():
+        msg = Msg("user", request.message, "user")
+        task = asyncio.create_task(agent(msg))
+        sent_text = ""
 
-    return StreamingResponse(generate(), media_type="text/event-stream")
+        try:
+            while True:
+                try:
+                    msg_obj, _, _ = await asyncio.wait_for(
+                        queue.get(), timeout=0.05
+                    )
+                    text = msg_obj.get_text_content() or ""
+                    if text and text != sent_text:
+                        sent_text = text
+                        yield f"data: {json.dumps(text, ensure_ascii=False)}\n\n"
+                except asyncio.TimeoutError:
+                    if task.done():
+                        break
+                    continue
+
+            # agent 完成后拉取最终结果
+            try:
+                reply = await task
+                text = reply.get_text_content() or ""
+                if text and text != sent_text:
+                    yield f"data: {json.dumps(text, ensure_ascii=False)}\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps(f'错误: {e}', ensure_ascii=False)}\n\n"
+        except asyncio.CancelledError:
+            # 客户端断开连接时取消 agent 任务
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
+        finally:
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.post("/logout")

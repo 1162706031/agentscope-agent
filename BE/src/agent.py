@@ -11,6 +11,7 @@ from agentscope.tool import (
     write_text_file,
     insert_text_file,
 )
+from sqlalchemy import true
 from config import Config
 from prompt_loader import (
     load_agent_prompt,
@@ -79,7 +80,7 @@ class AgentSession:
             toolkit=toolkit,
             formatter=OpenAIChatFormatter(),
         )
-        self.agent.set_console_output_enabled(False)
+        self.agent.set_console_output_enabled(True)
 
     def is_expired(self) -> bool:
         return datetime.now() - self.last_accessed > timedelta(hours=Config.SESSION_EXPIRE_HOURS)

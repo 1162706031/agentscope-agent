@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:8080';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8080';
 
 export interface SessionInfo {
   session_id: string;
@@ -70,7 +70,7 @@ export async function* streamChat(
       if (line.startsWith('data: ')) {
         const data = line.slice(6).trim();
         if (data === '[DONE]') return;
-        if (data) yield data;
+        if (data) yield JSON.parse(data);
       }
     }
   }

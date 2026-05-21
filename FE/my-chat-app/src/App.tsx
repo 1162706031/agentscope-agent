@@ -107,7 +107,7 @@ export default function App() {
     try {
       let full = '';
       for await (const chunk of streamChat(activeSession.id, text)) {
-        full += chunk;
+        full = chunk;  // chunk 已经是完整累积文本，直接替换
         setSessions((prev) =>
           prev.map((s) => {
             if (s.id !== activeSession.id) return s;
@@ -121,8 +121,8 @@ export default function App() {
         );
       }
     } catch (e: any) {
-      setSessions((prev) =>
-        prev.map((s) => {
+      setSessions((prev) => {
+        const next = prev.map((s) => {
           if (s.id !== activeSession.id) return s;
           return {
             ...s,
@@ -132,9 +132,17 @@ export default function App() {
                 : m,
             ),
           };
-        }),
-      );
+        });
+        saveSessions(next);
+        return next;
+      });
+      return;  // 出错时跳过 finally 的再次 persist
     }
+    // 流式完成后持久化最终结果
+    setSessions((prev) => {
+      saveSessions(prev);
+      return prev;
+    });
   };
 
   return (
