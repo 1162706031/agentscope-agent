@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { Session, ChatMessage } from './api';
+import type { Session, ChatMessage, StreamMessage } from './api';
 import { auth, streamChat, logout as apiLogout } from './api';
 import './App.css';
 
@@ -87,47 +87,80 @@ export default function App() {
       timestamp: Date.now(),
     };
 
-    const assistantMsg: ChatMessage = {
-      id: `a-${Date.now()}`,
-      role: 'assistant',
-      content: '',
-      timestamp: Date.now(),
-    };
-
     // 首次消息自动命名
     const isFirst = activeSession.messages.length === 0;
-    const updated: Session = {
+    const seed: Session = {
       ...activeSession,
       title: isFirst ? (text.slice(0, 30) + (text.length > 30 ? '...' : '')) : activeSession.title,
-      messages: [...activeSession.messages, userMsg, assistantMsg],
+      messages: [...activeSession.messages, userMsg],
     };
-    persist(sessions.map((s) => (s.id === updated.id ? updated : s)));
-    setActiveId(updated.id);
+    persist(sessions.map((s) => (s.id === seed.id ? seed : s)));
+    setActiveId(seed.id);
+
+    // backend msg_id → 前端 bubble id 映射
+    const bubbleMap = new Map<string, string>();
+    let seq = 0;
 
     try {
-      let full = '';
       for await (const chunk of streamChat(activeSession.id, text)) {
-        full = chunk;  // chunk 已经是完整累积文本，直接替换
-        setSessions((prev) =>
-          prev.map((s) => {
-            if (s.id !== activeSession.id) return s;
-            return {
-              ...s,
-              messages: s.messages.map((m) =>
-                m.id === assistantMsg.id ? { ...m, content: full } : m,
-              ),
+        seq++;
+        console.log(`[Chat] chunk ${seq}:`, chunk);
+
+        if (chunk.type === 'text') {
+          const backendId = chunk.msg_id || `_fallback_${seq}`;
+
+          const bubbleId = bubbleMap.get(backendId);
+          if (!bubbleId) {
+            // 新 backend 消息 → 创建新 bubble
+            const newId = `a-${Date.now()}-${seq}`;
+            bubbleMap.set(backendId, newId);
+            const newBubble: ChatMessage = {
+              id: newId,
+              role: 'assistant',
+              content: chunk.content,
+              timestamp: Date.now(),
             };
-          }),
-        );
+            setSessions((prev) =>
+              prev.map((s) => {
+                if (s.id !== activeSession.id) return s;
+                return { ...s, messages: [...s.messages, newBubble] };
+              }),
+            );
+          } else {
+            // 同一个 backend 消息在流式输出 → 更新对应 bubble
+            setSessions((prev) =>
+              prev.map((s) => {
+                if (s.id !== activeSession.id) return s;
+                return {
+                  ...s,
+                  messages: s.messages.map((m) =>
+                    m.id === bubbleId ? { ...m, content: chunk.content } : m,
+                  ),
+                };
+              }),
+            );
+          }
+        } else if (chunk.type === 'action') {
+          console.log('[Chat] action:', chunk.action, chunk.payload);
+          if (chunk.action === 'page_navigation') {
+            const { url } = chunk.payload as { url: string; content: string };
+            console.log('[Chat] 页面导航:', url);
+          }
+        }
       }
+
+      console.log('[Chat] 流式完成');
     } catch (e: any) {
+      console.error('[Chat] 流式错误:', e);
+      // 最后一个 bubble 显示错误
+      const lastBubbleId = [...bubbleMap.values()].pop();
       setSessions((prev) => {
         const next = prev.map((s) => {
           if (s.id !== activeSession.id) return s;
           return {
             ...s,
             messages: s.messages.map((m) =>
-              m.id === assistantMsg.id
+              lastBubbleId && m.id === lastBubbleId
                 ? { ...m, content: `错误: ${e.message}` }
                 : m,
             ),
@@ -136,7 +169,7 @@ export default function App() {
         saveSessions(next);
         return next;
       });
-      return;  // 出错时跳过 finally 的再次 persist
+      return;
     }
     // 流式完成后持久化最终结果
     setSessions((prev) => {

@@ -123,7 +123,29 @@ async def chat_stream(request: ChatRequest):
     async def event_generator():
         msg = Msg("user", request.message, "user")
         task = asyncio.create_task(agent(msg))
-        sent_text = ""
+        sent_by_msg: dict[str, str] = {}
+        sent_actions = set()
+
+        async def emit_msg(msg_obj: Msg):
+            """发送一条消息的 action 和 text 到 SSE"""
+            if msg_obj.metadata and isinstance(msg_obj.metadata, dict):
+                action = msg_obj.metadata.get("action")
+                payload = msg_obj.metadata.get("payload")
+                if action and payload:
+                    action_key = f"{action}:{payload.get('url', '')}"
+                    if action_key not in sent_actions:
+                        sent_actions.add(action_key)
+                        yield f"data: {json.dumps({'type': 'action', 'action': action, 'payload': payload}, ensure_ascii=False)}\n\n"
+
+            text = msg_obj.get_text_content() or ""
+            if not text:
+                return
+
+            msg_id = msg_obj.id or ""
+            prev = sent_by_msg.get(msg_id, "")
+            if text != prev:
+                sent_by_msg[msg_id] = text
+                yield f"data: {json.dumps({'type': 'text', 'msg_id': msg_id, 'content': text}, ensure_ascii=False)}\n\n"
 
         try:
             while True:
@@ -131,25 +153,20 @@ async def chat_stream(request: ChatRequest):
                     msg_obj, _, _ = await asyncio.wait_for(
                         queue.get(), timeout=0.05
                     )
-                    text = msg_obj.get_text_content() or ""
-                    if text and text != sent_text:
-                        sent_text = text
-                        yield f"data: {json.dumps(text, ensure_ascii=False)}\n\n"
+                    async for data in emit_msg(msg_obj):
+                        yield data
                 except asyncio.TimeoutError:
                     if task.done():
                         break
                     continue
 
-            # agent 完成后拉取最终结果
             try:
                 reply = await task
-                text = reply.get_text_content() or ""
-                if text and text != sent_text:
-                    yield f"data: {json.dumps(text, ensure_ascii=False)}\n\n"
+                async for data in emit_msg(reply):
+                    yield data
             except Exception as e:
-                yield f"data: {json.dumps(f'错误: {e}', ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'text', 'content': f'错误: {e}'}, ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
-            # 客户端断开连接时取消 agent 任务
             task.cancel()
             try:
                 await task

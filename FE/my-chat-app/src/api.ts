@@ -36,11 +36,16 @@ export async function auth(apiKey: string): Promise<SessionInfo> {
   return res.json();
 }
 
+/** SSE 返回的结构化消息 */
+export type StreamMessage =
+  | { type: 'text'; msg_id?: string; content: string }
+  | { type: 'action'; action: string; payload: Record<string, unknown> };
+
 /** POST /chat/stream - 流式对话 */
 export async function* streamChat(
   sessionId: string,
   message: string,
-): AsyncGenerator<string> {
+): AsyncGenerator<StreamMessage> {
   const res = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -70,7 +75,15 @@ export async function* streamChat(
       if (line.startsWith('data: ')) {
         const data = line.slice(6).trim();
         if (data === '[DONE]') return;
-        if (data) yield JSON.parse(data);
+        if (data) {
+          const parsed = JSON.parse(data);
+          // 兼容旧格式 (纯文本字符串)
+          if (typeof parsed === 'string') {
+            yield { type: 'text', content: parsed };
+          } else {
+            yield parsed as StreamMessage;
+          }
+        }
       }
     }
   }

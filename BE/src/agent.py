@@ -1,12 +1,15 @@
+import asyncio
 from datetime import datetime, timedelta
 import uuid
 
 from agentscope.agent import ReActAgent
+from agentscope.message import Msg, ToolUseBlock, ToolResultBlock
 from agentscope.model import OpenAIChatModel  # DeepSeek 兼容 OpenAI API
 from agentscope.formatter import OpenAIChatFormatter
 from agentscope.memory import InMemoryMemory
 from agentscope.tool import (
     Toolkit,
+    ToolResponse,
     view_text_file,
     write_text_file,
     insert_text_file,
@@ -18,7 +21,8 @@ from prompt_loader import (
     get_memory_context_prompt,
     SKILLS_DIR,
 )
-from typing import Dict, Optional
+from tools.agent_browser import agent_browser
+from typing import Dict, Optional, Any
 
 
 def _build_sys_prompt(role: str) -> str:
@@ -37,12 +41,60 @@ def _create_toolkit() -> Toolkit:
     toolkit.register_tool_function(write_text_file)
     toolkit.register_tool_function(insert_text_file)
 
+    # 注册旭丰新材料官网导航工具
+    toolkit.register_tool_function(agent_browser)
+
     # 注册 agent skill 目录
     for skill_dir in SKILLS_DIR.iterdir():
         if skill_dir.is_dir() and not skill_dir.name.startswith("."):
             toolkit.register_agent_skill(str(skill_dir))
 
     return toolkit
+
+
+class MetatoolReActAgent(ReActAgent):
+    """ReActAgent 子类，将 ToolResponse 的 metadata 保存到 Msg.metadata 上，
+    以便流式输出时能传递给前端。"""
+
+    async def _acting(self, tool_call: ToolUseBlock) -> dict | None:
+        """与父类相同，但将 ToolResponse.metadata 复制到打印的 Msg 上。"""
+        tool_res_msg = Msg(
+            "system",
+            [
+                ToolResultBlock(
+                    type="tool_result",
+                    id=tool_call["id"],
+                    name=tool_call["name"],
+                    output=[],
+                ),
+            ],
+            "system",
+        )
+        try:
+            tool_res = await self.toolkit.call_tool_function(tool_call)
+
+            async for chunk in tool_res:
+                tool_res_msg.content[0]["output"] = chunk.content
+                # 将 ToolResponse 的 metadata 保存到 Msg 上
+                if chunk.metadata:
+                    tool_res_msg.metadata = chunk.metadata
+
+                await self.print(tool_res_msg, chunk.is_last)
+
+                if chunk.is_interrupted:
+                    raise asyncio.CancelledError()
+
+                if (
+                    tool_call["name"] == self.finish_function_name
+                    and chunk.metadata
+                    and chunk.metadata.get("success", False)
+                ):
+                    return chunk.metadata.get("structured_output")
+
+            return None
+
+        finally:
+            await self.memory.add(tool_res_msg)
 
 
 class AgentSession:
@@ -62,7 +114,7 @@ class AgentSession:
             sys_prompt += "\n\n" + skill_prompt
 
         # 创建 Agent 实例（每个会话复用）
-        self.agent = ReActAgent(
+        self.agent = MetatoolReActAgent(
             name=f"Agent_{user_id}",
             model=OpenAIChatModel(
                 model_name=Config.MODEL_NAME,
