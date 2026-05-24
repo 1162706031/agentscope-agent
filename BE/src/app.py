@@ -80,7 +80,7 @@ async def health():
 async def authenticate(request: AuthRequest):
     """首次认证：传入 API Key 返回 session_id"""
     user_info = verify_api_key(request.api_key)
-    session = session_manager.create_session(
+    session = await session_manager.create_session(
         request.api_key, user_info["user_id"])
 
     expires_at = datetime.now() + timedelta(hours=Config.SESSION_EXPIRE_HOURS)

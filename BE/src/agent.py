@@ -9,12 +9,10 @@ from agentscope.formatter import OpenAIChatFormatter
 from agentscope.memory import InMemoryMemory
 from agentscope.tool import (
     Toolkit,
-    ToolResponse,
     view_text_file,
     write_text_file,
     insert_text_file,
 )
-from sqlalchemy import true
 from config import Config
 from prompt_loader import (
     load_agent_prompt,
@@ -22,8 +20,12 @@ from prompt_loader import (
     SKILLS_DIR,
 )
 from tools.agent_browser import agent_browser
+from tools.sub_agent_tools import (
+    sales_agent_tool,
+    technical_agent_tool,
+    production_agent_tool,
+)
 from typing import Dict, Optional, Any
-
 
 def _build_sys_prompt(role: str) -> str:
     """构建完整的系统提示词：人设 + 技能提示 + memory 路径上下文"""
@@ -32,8 +34,8 @@ def _build_sys_prompt(role: str) -> str:
     return persona + memory_ctx
 
 
-def _create_toolkit() -> Toolkit:
-    """创建并配置 Toolkit，注册内置工具和 Agent 技能"""
+async def _create_toolkit() -> Toolkit:
+    """创建并配置 Toolkit，注册内置工具、MCP 工具和 Agent 技能"""
     toolkit = Toolkit()
 
     # 注册内置文本文件工具（用于 memory 技能读写 MEMORY.md）
@@ -43,6 +45,15 @@ def _create_toolkit() -> Toolkit:
 
     # 注册旭丰新材料官网导航工具
     toolkit.register_tool_function(agent_browser)
+
+    # 注册三个专业子智能体工具（stateless，一次LLM调用）
+    # - sales_agent_tool：产品推荐、价格查询、报价生成、库存确认
+    # - technical_agent_tool：失效分析、热处理建议、性能对比
+    # - production_agent_tool：工艺解释、流程检查、交期预估
+    toolkit.register_tool_function(sales_agent_tool)
+    toolkit.register_tool_function(technical_agent_tool)
+    toolkit.register_tool_function(production_agent_tool)
+
 
     # 注册 agent skill 目录
     for skill_dir in SKILLS_DIR.iterdir():
@@ -98,22 +109,41 @@ class MetatoolReActAgent(ReActAgent):
 
 
 class AgentSession:
-    """持有 Agent 实例的会话"""
+    """持有 Agent 实例的会话。使用 async factory 模式创建，
+    因为 MCP 工具注册是异步的。"""
 
-    def __init__(self, session_id: str, user_id: str):
+    def __init__(self):
+        """请使用 AgentSession.create() 异步工厂方法创建实例。"""
+        self.session_id: str = ""
+        self.user_id: str = ""
+        self.created_at: datetime = datetime.now()
+        self.last_accessed: datetime = datetime.now()
+        self.agent: MetatoolReActAgent | None = None
+
+    @classmethod
+    async def create(cls, session_id: str, user_id: str) -> "AgentSession":
+        """异步工厂方法：创建 AgentSession 并初始化 MCP 工具和 Agent。
+
+        Args:
+            session_id: 会话唯一标识
+            user_id: 用户标识
+
+        Returns:
+            初始化完成的 AgentSession 实例
+        """
+        self = cls.__new__(cls)
         self.session_id = session_id
         self.user_id = user_id
         self.created_at = datetime.now()
         self.last_accessed = datetime.now()
 
-        toolkit = _create_toolkit()
+        toolkit = await _create_toolkit()
 
         sys_prompt = _build_sys_prompt(Config.AGENT_ROLE)
         skill_prompt = toolkit.get_agent_skill_prompt()
         if skill_prompt:
             sys_prompt += "\n\n" + skill_prompt
 
-        # 创建 Agent 实例（每个会话复用）
         self.agent = MetatoolReActAgent(
             name=f"Agent_{user_id}",
             model=OpenAIChatModel(
@@ -121,9 +151,8 @@ class AgentSession:
                 api_key=Config.DEEPSEEK_API_KEY,
                 client_kwargs={
                     "base_url": Config.DEEPSEEK_BASE_URL,
-                    # 或其他 OpenAI 客户端支持的参数
                     "timeout": 60,
-                    "max_retries": 3
+                    "max_retries": 3,
                 },
                 stream=True,
             ),
@@ -133,6 +162,7 @@ class AgentSession:
             formatter=OpenAIChatFormatter(),
         )
         self.agent.set_console_output_enabled(True)
+        return self
 
     def is_expired(self) -> bool:
         return datetime.now() - self.last_accessed > timedelta(hours=Config.SESSION_EXPIRE_HOURS)
@@ -146,9 +176,9 @@ class SessionManager:
         self._sessions: Dict[str, AgentSession] = {}
         self._api_key_to_sessions: Dict[str, set] = {}  # 一个 api_key 可以有多个 session
 
-    def create_session(self, api_key: str, user_id: str) -> AgentSession:
+    async def create_session(self, api_key: str, user_id: str) -> AgentSession:
         session_id = str(uuid.uuid4())
-        session = AgentSession(session_id, user_id)
+        session = await AgentSession.create(session_id, user_id)
         self._sessions[session_id] = session
         if api_key not in self._api_key_to_sessions:
             self._api_key_to_sessions[api_key] = set()
