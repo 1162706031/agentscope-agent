@@ -11,11 +11,11 @@ load_dotenv(_env_path)
 class Config:
     # DeepSeek 配置（通过 OpenAI 兼容接口）
     DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
-    DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")  # 加上 /v1
+    DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
     MODEL_NAME = os.getenv("MODEL_NAME", "deepseek-chat")
     PORT = int(os.getenv("PORT", 8080))
     # Agent 角色：对应 agents/ 目录下的子文件夹名
-    AGENT_ROLE = os.getenv("AGENT_ROLE", "default")
+    AGENT_ROLE = os.getenv("AGENT_ROLE", "Webassistance")
     
     # 前端认证 Key
     VALID_API_KEYS = {

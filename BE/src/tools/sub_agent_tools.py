@@ -13,17 +13,54 @@ Each sub-agent tool spawns a short-lived ReActAgent with its own mini Toolkit:
 Stateless: ReActAgent + Toolkit live only during the tool call.
 No persistent agent instance, no conversation memory between calls.
 """
+import asyncio
+
 from agentscope.agent import ReActAgent
 from agentscope.model import OpenAIChatModel
 from agentscope.memory import InMemoryMemory
 from agentscope.formatter import OpenAIChatFormatter
-from agentscope.message import Msg, TextBlock
+from agentscope.message import Msg, TextBlock, ToolUseBlock, ToolResultBlock
 from Mcp.web_search import _get_web_search_client
 from agentscope.tool import Toolkit, ToolResponse
 from config import Config
 from prompt_loader import load_agent_prompt, get_memory_path, SKILLS_DIR
 
 
+class _SubReActAgent(ReActAgent):
+    """ReActAgent with fixed _acting() that creates a proper Msg object
+    instead of a tuple. The vanilla library version has a bug where
+    tool_res_msg is a tuple, causing 'str' object has no attribute 'id'
+    when memory.add() iterates over it."""
+
+    async def _acting(self, tool_call: ToolUseBlock) -> dict | None:
+        tool_res_msg = Msg(
+            "system",
+            [
+                ToolResultBlock(
+                    type="tool_result",
+                    id=tool_call["id"],
+                    name=tool_call["name"],
+                    output=[],
+                ),
+            ],
+            "system",
+        )
+        try:
+            tool_res = await self.toolkit.call_tool_function(tool_call)
+            async for chunk in tool_res:
+                tool_res_msg.content[0]["output"] = chunk.content
+                await self.print(tool_res_msg, chunk.is_last)
+                if chunk.is_interrupted:
+                    raise asyncio.CancelledError()
+                if (
+                    tool_call["name"] == self.finish_function_name
+                    and chunk.metadata
+                    and chunk.metadata.get("success", False)
+                ):
+                    return chunk.metadata.get("structured_output")
+            return None
+        finally:
+            await self.memory.add(tool_res_msg)
 
 
 # ==================== Shared Model ====================
@@ -111,8 +148,7 @@ async def _run_sub_agent(role: str, question: str, context: str = "") -> str:
     if context:
         user_content += f"\n\n【参考资料（来自web搜索）】\n{context}"
 
-    # Create a temporary ReActAgent for this single call
-    agent = ReActAgent(
+    agent = _SubReActAgent(
         name=f"SubAgent_{role}",
         model=_get_model(),
         sys_prompt=system_prompt,
