@@ -63,6 +63,7 @@ testproject/
 │   │   ├── sales/                      # 销售智能体
 │   │   ├── technical-engineer/         # 技术工程师智能体
 │   │   ├── production/                 # 生产流程智能体
+│   │   ├── internal-assistant/         # 内部信息咨询智能体
 │   │   ├── coder/                      # 编程助手（备选角色）
 │   │   └── default/                    # 通用助手（备选角色）
 │   │
@@ -587,8 +588,8 @@ cleaned = manager.cleanup_expired_sessions()  # 返回清理数量
 ```
 
 **会话生命周期：**
-1. 前端 POST `/auth` → 创建 AgentSession → 返回 session_id
-2. 同一 session_id 多次调用 `/chat` → Agent 保持对话上下文
+1. 前端 POST `/auth` → 创建 AgentSession → 返回 session_id，可通过 `agent_role` 指定默认 Agent
+2. 同一 session_id 多次调用 `/chat` → 同一 Agent 保持对话上下文；请求中传不同 `agent_role` 时按角色懒加载并复用不同 Agent
 3. 空闲超过 24 小时 → 自动过期
 4. 前端 POST `/logout` → 主动销毁
 
@@ -604,8 +605,10 @@ class Config:
     # 服务端口
     PORT = int(os.getenv("PORT", 8080))
 
-    # Agent 角色（对应 agents/ 下的目录名）
-    AGENT_ROLE = os.getenv("AGENT_ROLE", "default")
+    # 默认 Agent 角色（对应 agents/ 下的目录名）
+    AGENT_ROLE = os.getenv("AGENT_ROLE", "Webassistance")
+    # 可启用的 Agent 角色列表，逗号分隔；未设置时仅启用 AGENT_ROLE
+    AGENT_ROLES = os.getenv("AGENT_ROLES", AGENT_ROLE).split(",")
 
     # 前端认证 Key
     VALID_API_KEYS = {
@@ -624,6 +627,8 @@ DEEPSEEK_API_KEY=sk-xxxxxxxx
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 MODEL_NAME=deepseek-chat
 AGENT_ROLE=Webassistance
+AGENT_ROLES=Webassistance,internal-assistant,sales,technical-engineer,production
+MCP_STRICT_REGISTRATION=false
 PORT=8080
 ```
 
@@ -638,7 +643,7 @@ prompt = load_agent_prompt("Webassistance")
 
 # 列出所有可用角色
 roles = list_available_roles()
-# 返回: ["Webassistance", "coder", "default", "production", "sales", "technical-engineer"]
+# 返回: ["Webassistance", "coder", "default", "internal-assistant", "production", "sales", "technical-engineer"]
 
 # 获取角色 MEMORY.md 路径
 path = get_memory_path("sales")
@@ -833,15 +838,34 @@ type StreamMessage =
 
 **环境变量切换：** `AGENT_ROLE=production`
 
-### 6.7 coder（编程助手）
+### 6.7 internal-assistant（内部信息咨询智能体）
+
+**身份：** 旭丰内务助手 — 公司内部信息咨询助手
+
+**职责：**
+- 查询或解释内部制度、流程、资料和业务协作规则
+- 协助内部数据咨询，如订单、客户、产品、库存、生产记录等
+- 整理内部沟通模板、对外统一口径和跨部门协作说明
+- 帮新员工理解公司资料位置、部门职责和办理步骤
+
+**安全边界：**
+- 不泄露员工隐私、客户隐私、内部成本、底价、合同细节、凭证等敏感信息
+- 不替代审批、财务、人事、质量、安全等正式流程
+- 查不到内部数据时明确说明，不编造
+
+**自有工具：** texttosql MCP + memory skill
+
+**环境变量切换：** `AGENT_ROLE=internal-assistant`
+
+### 6.8 coder（编程助手）
 
 备选角色，用于编程开发场景。`AGENT_ROLE=coder`
 
-### 6.8 default（通用助手）
+### 6.9 default（通用助手）
 
 备选角色，默认通用 AI 助手。`AGENT_ROLE=default`（默认值）
 
-### 6.9 如何切换角色
+### 6.10 如何切换角色
 
 ```bash
 # 方式1：修改 .env 文件
@@ -1185,7 +1209,9 @@ docker-compose up -d
 | `DEEPSEEK_API_KEY` | (必填) | DeepSeek API Key |
 | `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | API 地址 |
 | `MODEL_NAME` | `deepseek-chat` | 模型名 |
-| `AGENT_ROLE` | `default` | Agent 角色 |
+| `AGENT_ROLE` | `Webassistance` | 默认 Agent 角色 |
+| `AGENT_ROLES` | 同 `AGENT_ROLE` | 启用的 Agent 角色列表，逗号分隔 |
+| `MCP_STRICT_REGISTRATION` | `false` | 是否要求 MCP 注册失败时直接报错；默认跳过不可用 MCP |
 | `PORT` | `8080` | 服务端口 |
 
 ### 11.2 手动部署
@@ -1199,6 +1225,8 @@ pip install -r requirements.txt
 # 配置环境变量
 export DEEPSEEK_API_KEY=sk-xxx
 export AGENT_ROLE=Webassistance
+export AGENT_ROLES=Webassistance,internal-assistant
+export MCP_STRICT_REGISTRATION=false
 
 # 启动
 python src/app.py

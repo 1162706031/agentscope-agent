@@ -1,9 +1,18 @@
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8080';
+export const DEFAULT_API_KEY = import.meta.env.VITE_API_KEY || 'sk-frontend-001';
+
+export interface AgentsInfo {
+  default_agent_role: string;
+  enabled_agent_roles: string[];
+  available_agent_roles: string[];
+}
 
 export interface SessionInfo {
   session_id: string;
   user_id: string;
   expires_at: string;
+  agent_role: string;
+  available_agent_roles: string[];
 }
 
 export interface ChatMessage {
@@ -16,18 +25,29 @@ export interface ChatMessage {
 export interface Session {
   id: string;
   userId: string;
-  apiKey: string;
+  apiKey?: string;
+  agentRole?: string;
   title: string;
   messages: ChatMessage[];
   createdAt: number;
 }
 
+/** GET /agents - 获取可用智能体 */
+export async function getAgents(): Promise<AgentsInfo> {
+  const res = await fetch(`${API_BASE}/agents`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to load agents' }));
+    throw new Error(err.detail || `Failed to load agents: ${res.status}`);
+  }
+  return res.json();
+}
+
 /** POST /auth - 认证获取 session */
-export async function auth(apiKey: string): Promise<SessionInfo> {
+export async function auth(apiKey: string, agentRole?: string): Promise<SessionInfo> {
   const res = await fetch(`${API_BASE}/auth`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ api_key: apiKey }),
+    body: JSON.stringify({ api_key: apiKey, agent_role: agentRole }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Auth failed' }));
@@ -45,11 +65,12 @@ export type StreamMessage =
 export async function* streamChat(
   sessionId: string,
   message: string,
+  agentRole?: string,
 ): AsyncGenerator<StreamMessage> {
   const res = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: sessionId, message }),
+    body: JSON.stringify({ session_id: sessionId, message, agent_role: agentRole }),
   });
 
   if (!res.ok) {

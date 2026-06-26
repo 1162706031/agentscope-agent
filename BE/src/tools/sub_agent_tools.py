@@ -129,7 +129,11 @@ async def _build_sub_agent_toolkit(role: str) -> Toolkit:
     runtime_config = load_agent_runtime_config(role)
 
     _register_sub_agent_tool_functions(toolkit, runtime_config)
-    await register_configured_mcp_clients(toolkit, runtime_config)
+    await register_configured_mcp_clients(
+        toolkit,
+        runtime_config,
+        strict=Config.MCP_STRICT_REGISTRATION,
+    )
     register_configured_skills(toolkit, runtime_config)
 
     return toolkit

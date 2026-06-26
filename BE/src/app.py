@@ -9,27 +9,33 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from agent import SessionManager
 from config import Config
+from prompt_loader import list_available_roles
 from agentscope.message import Msg
 
 class AuthRequest(BaseModel):
     api_key: str
+    agent_role: str | None = None
 
 
 class AuthResponse(BaseModel):
     session_id: str
     user_id: str
     expires_at: str
+    agent_role: str
+    available_agent_roles: list[str]
 
 
 class ChatRequest(BaseModel):
     session_id: str
     message: str = ""  # 简化：单条消息，logout 不需要 message
+    agent_role: str | None = None
 
 
 class ChatResponse(BaseModel):
     session_id: str
     content: str
     role: str
+    agent_role: str
 
 
 # ==================== FastAPI 应用 ====================
@@ -70,6 +76,47 @@ def verify_api_key(api_key: str) -> dict:
     return {"user_id": Config.VALID_API_KEYS[api_key]["user_id"]}
 
 
+def get_enabled_agent_roles() -> list[str]:
+    """返回当前服务允许使用的 agent 角色列表。"""
+    available = set(list_available_roles())
+    enabled = []
+    for role in Config.AGENT_ROLES:
+        if role in available and role not in enabled:
+            enabled.append(role)
+
+    if not enabled:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": "No enabled agent roles are available",
+                "configured_roles": Config.AGENT_ROLES,
+                "available_roles": sorted(available),
+            },
+        )
+    return enabled
+
+
+def resolve_agent_role(agent_role: str | None) -> str:
+    """解析并校验请求指定的 agent 角色。"""
+    enabled = get_enabled_agent_roles()
+    role = agent_role or (Config.AGENT_ROLE if Config.AGENT_ROLE in enabled else enabled[0])
+    if role not in enabled:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": f"Agent role '{role}' is not enabled",
+                "enabled_agent_roles": enabled,
+                "available_roles": list_available_roles(),
+            },
+        )
+    return role
+
+
+def get_default_agent_role() -> str:
+    enabled = get_enabled_agent_roles()
+    return Config.AGENT_ROLE if Config.AGENT_ROLE in enabled else enabled[0]
+
+
 # ==================== API 端点 ====================
 @app.get("/health")
 async def health():
@@ -77,8 +124,19 @@ async def health():
         "status": "healthy",
         "active_sessions": session_manager.get_active_count(),
         "model": Config.get_model_info(),
-        "agent_role": Config.AGENT_ROLE,
+        "default_agent_role": get_default_agent_role(),
+        "enabled_agent_roles": get_enabled_agent_roles(),
+        "available_agent_roles": list_available_roles(),
         "port": Config.PORT,
+    }
+
+
+@app.get("/agents")
+async def agents():
+    return {
+        "default_agent_role": get_default_agent_role(),
+        "enabled_agent_roles": get_enabled_agent_roles(),
+        "available_agent_roles": list_available_roles(),
     }
 
 
@@ -86,14 +144,20 @@ async def health():
 async def authenticate(request: AuthRequest):
     """首次认证：传入 API Key 返回 session_id"""
     user_info = verify_api_key(request.api_key)
+    agent_role = resolve_agent_role(request.agent_role)
     session = await session_manager.create_session(
-        request.api_key, user_info["user_id"])
+        request.api_key,
+        user_info["user_id"],
+        agent_role,
+    )
 
     expires_at = datetime.now() + timedelta(hours=Config.SESSION_EXPIRE_HOURS)
     return AuthResponse(
         session_id=session.session_id,
         user_id=user_info["user_id"],
-        expires_at=expires_at.isoformat()
+        expires_at=expires_at.isoformat(),
+        agent_role=agent_role,
+        available_agent_roles=get_enabled_agent_roles(),
     )
 
 
@@ -104,13 +168,16 @@ async def chat(request: ChatRequest):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found or expired")
 
+    agent_role = resolve_agent_role(request.agent_role or session.default_role)
+    agent = await session.get_agent(agent_role)
     msg = Msg("user", request.message, "user")
-    reply = await session.agent(msg)
+    reply = await agent(msg)
 
     return ChatResponse(
         session_id=request.session_id,
         content=reply.get_text_content() or "",
         role="assistant",
+        agent_role=agent_role,
     )
 
 
@@ -121,7 +188,8 @@ async def chat_stream(request: ChatRequest):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found or expired")
 
-    agent = session.agent
+    agent_role = resolve_agent_role(request.agent_role or session.default_role)
+    agent = await session.get_agent(agent_role)
     # 为每个流式请求创建独立队列，避免残留消息干扰
     queue: asyncio.Queue = asyncio.Queue(maxsize=100)
     agent.set_msg_queue_enabled(True, queue=queue)

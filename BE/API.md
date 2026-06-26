@@ -23,32 +23,55 @@ curl http://localhost:8080/health
 ```json
 {
   "status": "healthy",
-  "active_sessions": 3
+  "active_sessions": 3,
+  "default_agent_role": "Webassistance",
+  "enabled_agent_roles": ["Webassistance", "internal-assistant"]
 }
 ```
 
 ---
 
-## 2. 认证 / 创建会话
+## 2. Agent 列表
+
+```
+GET /agents
+```
+
+**用途：** 返回当前服务可选择的 Agent 角色。`enabled_agent_roles` 由环境变量 `AGENT_ROLES` 控制；未设置时只启用 `AGENT_ROLE`。
+
+**响应示例：**
+
+```json
+{
+  "default_agent_role": "Webassistance",
+  "enabled_agent_roles": ["Webassistance", "internal-assistant"],
+  "available_agent_roles": ["Webassistance", "coder", "default", "internal-assistant", "production", "sales", "technical-engineer"]
+}
+```
+
+---
+
+## 3. 认证 / 创建会话
 
 ```
 POST /auth
 ```
 
-**用途：** 传入 API Key 进行认证，创建并返回一个新会话（session）。后续 `/chat`、`/chat/stream`、`/logout` 都需要携带返回的 `session_id`。
+**用途：** 传入 API Key 进行认证，创建并返回一个新会话（session）。可选传入 `agent_role` 指定默认 Agent。后续 `/chat`、`/chat/stream`、`/logout` 都需要携带返回的 `session_id`。
 
 **请求体 (JSON)：**
 
 | 字段      | 类型   | 必填 | 说明            |
 | --------- | ------ | ---- | --------------- |
 | `api_key` | string | 是   | 前端 API Key |
+| `agent_role` | string | 否 | 本会话默认 Agent 角色；不传则使用服务默认角色 |
 
 **请求示例：**
 
 ```bash
 curl -X POST http://localhost:8080/auth \
   -H "Content-Type: application/json" \
-  -d '{"api_key": "sk-frontend-001"}'
+  -d '{"api_key": "sk-frontend-001", "agent_role": "internal-assistant"}'
 ```
 
 **成功响应 200：**
@@ -57,7 +80,9 @@ curl -X POST http://localhost:8080/auth \
 {
   "session_id": "a1b2c3d4-e5f6-...",
   "user_id": "user_001",
-  "expires_at": "2026-05-22T15:30:00"
+  "expires_at": "2026-05-22T15:30:00",
+  "agent_role": "internal-assistant",
+  "available_agent_roles": ["Webassistance", "internal-assistant"]
 }
 ```
 
@@ -66,6 +91,8 @@ curl -X POST http://localhost:8080/auth \
 | `session_id` | string | 会话唯一标识，后续请求都要携带      |
 | `user_id`    | string | 用户标识                          |
 | `expires_at` | string | 会话过期时间（ISO 8601 格式）      |
+| `agent_role` | string | 本会话默认 Agent 角色 |
+| `available_agent_roles` | array | 当前服务允许选择的 Agent 角色 |
 
 **错误响应 401：**
 
@@ -75,7 +102,7 @@ curl -X POST http://localhost:8080/auth \
 
 ---
 
-## 3. 同步对话
+## 4. 同步对话
 
 ```
 POST /chat
@@ -89,13 +116,14 @@ POST /chat
 | ------------ | ------ | ---- | ----------------- |
 | `session_id` | string | 是   | 由 `/auth` 获取    |
 | `message`    | string | 是   | 用户发送的消息内容 |
+| `agent_role` | string | 否   | 指定本次对话使用哪个 Agent；不传则使用会话默认 Agent |
 
 **请求示例：**
 
 ```bash
 curl -X POST http://localhost:8080/chat \
   -H "Content-Type: application/json" \
-  -d '{"session_id": "a1b2c3d4-...", "message": "帮我写一段 Python 代码"}'
+  -d '{"session_id": "a1b2c3d4-...", "agent_role": "internal-assistant", "message": "查一下 H13 库存"}'
 ```
 
 **成功响应 200：**
@@ -104,7 +132,8 @@ curl -X POST http://localhost:8080/chat \
 {
   "session_id": "a1b2c3d4-...",
   "content": "当然！请问你需要什么功能的 Python 代码？...",
-  "role": "assistant"
+  "role": "assistant",
+  "agent_role": "internal-assistant"
 }
 ```
 
@@ -113,6 +142,7 @@ curl -X POST http://localhost:8080/chat \
 | `session_id` | string | 会话标识                    |
 | `content`    | string | Agent 的回复文本           |
 | `role`       | string | 固定为 `"assistant"`       |
+| `agent_role` | string | 本次回复对应的 Agent 角色 |
 
 **错误响应 404：**
 
@@ -122,7 +152,7 @@ curl -X POST http://localhost:8080/chat \
 
 ---
 
-## 4. 流式对话 (SSE)
+## 5. 流式对话 (SSE)
 
 ```
 POST /chat/stream
@@ -136,13 +166,14 @@ POST /chat/stream
 | ------------ | ------ | ---- | ----------------- |
 | `session_id` | string | 是   | 由 `/auth` 获取    |
 | `message`    | string | 是   | 用户发送的消息内容 |
+| `agent_role` | string | 否   | 指定本次流式对话使用哪个 Agent；不传则使用会话默认 Agent |
 
 **请求示例：**
 
 ```bash
 curl -X POST http://localhost:8080/chat/stream \
   -H "Content-Type: application/json" \
-  -d '{"session_id": "a1b2c3d4-...", "message": "你好"}' \
+  -d '{"session_id": "a1b2c3d4-...", "agent_role": "Webassistance", "message": "你好"}' \
   --no-buffer
 ```
 
@@ -174,11 +205,12 @@ data: [DONE]
 export async function* streamChat(
   sessionId: string,
   message: string,
+  agentRole?: string,
 ): AsyncGenerator<string> {
   const res = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: sessionId, message }),
+    body: JSON.stringify({ session_id: sessionId, message, agent_role: agentRole }),
   });
 
   if (!res.ok) {
@@ -215,7 +247,7 @@ export async function* streamChat(
 
 ---
 
-## 5. 登出 / 销毁会话
+## 6. 登出 / 销毁会话
 
 ```
 POST /logout

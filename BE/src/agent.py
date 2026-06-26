@@ -67,7 +67,11 @@ async def _create_toolkit(role: str) -> Toolkit:
     runtime_config = load_agent_runtime_config(role)
 
     _register_tool_functions(toolkit, runtime_config)
-    await register_configured_mcp_clients(toolkit, runtime_config)
+    await register_configured_mcp_clients(
+        toolkit,
+        runtime_config,
+        strict=Config.MCP_STRICT_REGISTRATION,
+    )
     register_configured_skills(toolkit, runtime_config)
 
     return toolkit
@@ -128,15 +132,17 @@ class AgentSession:
         self.user_id: str = ""
         self.created_at: datetime = datetime.now()
         self.last_accessed: datetime = datetime.now()
-        self.agent: MetatoolReActAgent | None = None
+        self.default_role: str = ""
+        self.agents: Dict[str, MetatoolReActAgent] = {}
 
     @classmethod
-    async def create(cls, session_id: str, user_id: str) -> "AgentSession":
-        """异步工厂方法：创建 AgentSession 并初始化 MCP 工具和 Agent。
+    async def create(cls, session_id: str, user_id: str, default_role: str) -> "AgentSession":
+        """异步工厂方法：创建 AgentSession 并初始化默认 Agent。
 
         Args:
             session_id: 会话唯一标识
             user_id: 用户标识
+            default_role: 默认 agent 角色
 
         Returns:
             初始化完成的 AgentSession 实例
@@ -146,17 +152,26 @@ class AgentSession:
         self.user_id = user_id
         self.created_at = datetime.now()
         self.last_accessed = datetime.now()
+        self.default_role = default_role
+        self.agents = {}
 
-        role = Config.AGENT_ROLE
-        toolkit = await _create_toolkit(role)
+        return self
 
-        sys_prompt = _build_sys_prompt(role)
+    async def get_agent(self, role: str | None = None) -> MetatoolReActAgent:
+        """获取指定角色的 Agent；不存在时按角色配置懒加载创建。"""
+        agent_role = role or self.default_role
+        if agent_role in self.agents:
+            return self.agents[agent_role]
+
+        toolkit = await _create_toolkit(agent_role)
+
+        sys_prompt = _build_sys_prompt(agent_role)
         skill_prompt = toolkit.get_agent_skill_prompt()
         if skill_prompt:
             sys_prompt += "\n\n" + skill_prompt
 
-        self.agent = MetatoolReActAgent(
-            name=f"Agent_{user_id}",
+        agent = MetatoolReActAgent(
+            name=f"Agent_{self.user_id}_{agent_role}",
             model=OpenAIChatModel(
                 model_name=Config.MODEL_NAME,
                 api_key=Config.DEEPSEEK_API_KEY,
@@ -172,8 +187,9 @@ class AgentSession:
             toolkit=toolkit,
             formatter=OpenAIChatFormatter(),
         )
-        self.agent.set_console_output_enabled(True)
-        return self
+        agent.set_console_output_enabled(True)
+        self.agents[agent_role] = agent
+        return agent
 
     def is_expired(self) -> bool:
         return datetime.now() - self.last_accessed > timedelta(hours=Config.SESSION_EXPIRE_HOURS)
@@ -187,9 +203,9 @@ class SessionManager:
         self._sessions: Dict[str, AgentSession] = {}
         self._api_key_to_sessions: Dict[str, set] = {}  # 一个 api_key 可以有多个 session
 
-    async def create_session(self, api_key: str, user_id: str) -> AgentSession:
+    async def create_session(self, api_key: str, user_id: str, default_role: str) -> AgentSession:
         session_id = str(uuid.uuid4())
-        session = await AgentSession.create(session_id, user_id)
+        session = await AgentSession.create(session_id, user_id, default_role)
         self._sessions[session_id] = session
         if api_key not in self._api_key_to_sessions:
             self._api_key_to_sessions[api_key] = set()

@@ -71,7 +71,12 @@ def load_agent_runtime_config(role: str) -> AgentRuntimeConfig:
     )
 
 
-async def register_configured_mcp_clients(toolkit: Any, config: AgentRuntimeConfig) -> None:
+async def register_configured_mcp_clients(
+    toolkit: Any,
+    config: AgentRuntimeConfig,
+    *,
+    strict: bool = False,
+) -> list[str]:
     unknown = sorted(set(config.mcps) - set(MCP_CLIENT_FACTORIES))
     if unknown:
         raise ValueError(
@@ -79,8 +84,16 @@ async def register_configured_mcp_clients(toolkit: Any, config: AgentRuntimeConf
             f"{sorted(MCP_CLIENT_FACTORIES)}"
         )
 
+    registered = []
     for mcp_name in config.mcps:
-        await toolkit.register_mcp_client(MCP_CLIENT_FACTORIES[mcp_name]())
+        try:
+            await toolkit.register_mcp_client(MCP_CLIENT_FACTORIES[mcp_name]())
+            registered.append(mcp_name)
+        except Exception as exc:
+            if strict:
+                raise
+            print(f"[WARN] MCP client '{mcp_name}' registration failed; skipped. error={exc!r}")
+    return registered
 
 
 def register_configured_skills(toolkit: Any, config: AgentRuntimeConfig) -> None:

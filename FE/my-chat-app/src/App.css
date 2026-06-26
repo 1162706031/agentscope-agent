@@ -114,6 +114,20 @@
   line-height: 1.4;
 }
 
+.session-agent {
+  flex-shrink: 0;
+  max-width: 72px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #3a3c44;
+  color: #b9c2ff;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .session-delete {
   opacity: 0;
   transition: opacity 0.15s;
@@ -156,6 +170,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .topbar-title {
@@ -166,6 +181,16 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 400px;
+}
+
+.topbar-agent {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #f0f2ff;
+  color: #4f6ef7;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 /* Messages area */
@@ -410,14 +435,23 @@
   margin-bottom: 20px;
 }
 
-.key-list {
+.modal-error {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff1f2;
+  color: #be123c;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.agent-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-bottom: 24px;
 }
 
-.key-option {
+.agent-option {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -427,17 +461,31 @@
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
-.key-option.selected {
+.agent-option.selected {
   border-color: #4f6ef7;
   background: #f5f7ff;
 }
-.key-option input[type="radio"] {
+.agent-option input[type="radio"] {
   accent-color: #4f6ef7;
 }
-.key-text {
-  font-size: 13px;
-  font-family: 'SF Mono', 'Fira Code', monospace;
+
+.agent-option-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.agent-name {
+  font-size: 14px;
+  font-weight: 600;
   color: #333;
+}
+
+.agent-id {
+  font-size: 12px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: #888;
 }
 
 .modal-actions {

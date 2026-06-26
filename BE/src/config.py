@@ -3,9 +3,18 @@ import os
 from pathlib import Path
 
 # 加载 .env 文件（BE/.env） ////测试的时候加上
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(*args, **kwargs):
+        return False
+
 _env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(_env_path)
+
+
+def _split_roles(value: str) -> list[str]:
+    return [role.strip() for role in value.split(",") if role.strip()]
 
 
 class Config:
@@ -14,8 +23,17 @@ class Config:
     DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
     MODEL_NAME = os.getenv("MODEL_NAME", "deepseek-chat")
     PORT = int(os.getenv("PORT", 8080))
-    # Agent 角色：对应 agents/ 目录下的子文件夹名
-    AGENT_ROLE = os.getenv("AGENT_ROLE", "Webassistance")
+    # 默认 Agent 角色：对应 agents/ 目录下的子文件夹名
+    _agent_role_env = os.getenv("AGENT_ROLE", "Webassistance")
+    _agent_roles_env = os.getenv("AGENT_ROLES")
+    _agent_role_parts = _split_roles(_agent_role_env)
+    AGENT_ROLE = _agent_role_parts[0] if _agent_role_parts else "Webassistance"
+    # 可启用的 Agent 角色列表，逗号分隔；未设置时兼容旧配置，支持 AGENT_ROLE 写成逗号列表
+    AGENT_ROLES = _split_roles(_agent_roles_env) if _agent_roles_env else _agent_role_parts
+    MCP_STRICT_REGISTRATION = os.getenv(
+        "MCP_STRICT_REGISTRATION",
+        "false",
+    ).lower() in {"1", "true", "yes", "on"}
 
     # 模型信息（根据 MODEL_NAME 自动设置）
     MODEL_INFO = {

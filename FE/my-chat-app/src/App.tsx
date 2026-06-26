@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { Session, ChatMessage, StreamMessage } from './api';
-import { auth, streamChat, logout as apiLogout } from './api';
+import type { Session, ChatMessage } from './api';
+import { DEFAULT_API_KEY, auth, getAgents, streamChat, logout as apiLogout } from './api';
 import './App.css';
-
-const API_KEYS = ['sk-frontend-001', 'sk-frontend-002'];
 
 /* ─── localStorage helpers ─── */
 function loadSessions(): Session[] {
@@ -19,6 +17,19 @@ function saveSessions(sessions: Session[]) {
   localStorage.setItem('chat_sessions', JSON.stringify(sessions));
 }
 
+function formatAgentRole(role?: string) {
+  const labels: Record<string, string> = {
+    Webassistance: '官网客服',
+    'internal-assistant': '内部助手',
+    sales: '销售',
+    'technical-engineer': '技术工程师',
+    production: '生产',
+    coder: '编程助手',
+    default: '通用助手',
+  };
+  return role ? (labels[role] || role) : '智能体';
+}
+
 /* ─── App ─── */
 export default function App() {
   const [sessions, setSessions] = useState<Session[]>(loadSessions);
@@ -27,23 +38,40 @@ export default function App() {
   );
   const [showAuth, setShowAuth] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [agentRoles, setAgentRoles] = useState<string[]>([]);
+  const [defaultAgentRole, setDefaultAgentRole] = useState('Webassistance');
+  const [agentsError, setAgentsError] = useState<string | null>(null);
 
   const activeSession = sessions.find((s) => s.id === activeId) ?? null;
+  const activeAgentRole = activeSession?.agentRole || defaultAgentRole;
 
   const persist = useCallback((next: Session[]) => {
     setSessions(next);
     saveSessions(next);
   }, []);
 
-  /* 新建 session —— 先弹窗认证再创建 */
-  const handleNewSession = async (apiKey: string) => {
+  useEffect(() => {
+    getAgents()
+      .then((info) => {
+        setAgentRoles(info.enabled_agent_roles);
+        setDefaultAgentRole(info.default_agent_role);
+        setAgentsError(null);
+      })
+      .catch((e: any) => {
+        setAgentsError(e.message || '无法加载智能体列表');
+        setAgentRoles([]);
+      });
+  }, []);
+
+  /* 新建 session —— 选择智能体后创建 */
+  const handleNewSession = async (agentRole: string) => {
     try {
-      const info = await auth(apiKey);
+      const info = await auth(DEFAULT_API_KEY, agentRole);
       const session: Session = {
         id: info.session_id,
         userId: info.user_id,
-        apiKey,
-        title: '新对话',
+        agentRole: info.agent_role,
+        title: `${formatAgentRole(info.agent_role)} 对话`,
         messages: [],
         createdAt: Date.now(),
       };
@@ -52,7 +80,7 @@ export default function App() {
       setActiveId(session.id);
       setShowAuth(false);
     } catch (e: any) {
-      alert('认证失败: ' + e.message);
+      alert('创建会话失败: ' + e.message);
     }
   };
 
@@ -102,7 +130,8 @@ export default function App() {
     let seq = 0;
 
     try {
-      for await (const chunk of streamChat(activeSession.id, text)) {
+      const agentRole = activeSession.agentRole || defaultAgentRole;
+      for await (const chunk of streamChat(activeSession.id, text, agentRole)) {
         seq++;
         console.log(`[Chat] chunk ${seq}:`, chunk);
 
@@ -194,6 +223,7 @@ export default function App() {
       {/* 主聊天区域 */}
       <ChatArea
         session={activeSession}
+        agentRole={activeAgentRole}
         onSend={handleSend}
         onNewChat={() => setShowAuth(true)}
         sidebarOpen={sidebarOpen}
@@ -203,6 +233,9 @@ export default function App() {
       {/* 认证弹窗 */}
       {showAuth && (
         <AuthModal
+          agentRoles={agentRoles}
+          defaultAgentRole={defaultAgentRole}
+          error={agentsError}
           onConfirm={handleNewSession}
           onClose={() => setShowAuth(false)}
         />
@@ -262,6 +295,11 @@ function Sidebar({
               <span className="session-title" title={s.title}>
                 {s.title}
               </span>
+              {s.agentRole && (
+                <span className="session-agent" title={s.agentRole}>
+                  {formatAgentRole(s.agentRole)}
+                </span>
+              )}
               <button
                 className="icon-btn session-delete"
                 onClick={(e) => {
@@ -287,12 +325,14 @@ function Sidebar({
 /* ─── ChatArea ─── */
 function ChatArea({
   session,
+  agentRole,
   onSend,
   onNewChat,
   sidebarOpen,
   onToggleSidebar,
 }: {
   session: Session | null;
+  agentRole: string;
   onSend: (text: string) => Promise<void>;
   onNewChat: () => void;
   sidebarOpen: boolean;
@@ -351,6 +391,7 @@ function ChatArea({
           <h1 className="topbar-title">
             {session?.title ?? 'DeepSeek Chat'}
           </h1>
+          <span className="topbar-agent">{formatAgentRole(agentRole)}</span>
         </div>
       </header>
 
@@ -454,42 +495,59 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
   );
 }
 
-/* ─── Auth Modal ─── */
+/* ─── Agent Modal ─── */
 function AuthModal({
+  agentRoles,
+  defaultAgentRole,
+  error,
   onConfirm,
   onClose,
 }: {
-  onConfirm: (key: string) => void;
+  agentRoles: string[];
+  defaultAgentRole: string;
+  error: string | null;
+  onConfirm: (agentRole: string) => void;
   onClose: () => void;
 }) {
-  const [selected, setSelected] = useState(API_KEYS[0]);
+  const roles = agentRoles.length > 0 ? agentRoles : [defaultAgentRole];
+  const [selected, setSelected] = useState(defaultAgentRole);
+
+  useEffect(() => {
+    if (!roles.includes(selected)) {
+      setSelected(roles[0]);
+    }
+  }, [roles, selected]);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <h2 className="modal-title">API Key 认证</h2>
-        <p className="modal-desc">选择 API Key 创建新会话</p>
-        <div className="key-list">
-          {API_KEYS.map((k) => (
+        <h2 className="modal-title">选择智能体</h2>
+        <p className="modal-desc">选择本次会话要使用的智能体</p>
+        {error && <div className="modal-error">{error}</div>}
+        <div className="agent-list">
+          {roles.map((role) => (
             <label
-              key={k}
-              className={`key-option ${selected === k ? 'selected' : ''}`}
+              key={role}
+              className={`agent-option ${selected === role ? 'selected' : ''}`}
             >
               <input
                 type="radio"
-                name="apikey"
-                value={k}
-                checked={selected === k}
-                onChange={() => setSelected(k)}
+                name="agent-role"
+                value={role}
+                checked={selected === role}
+                onChange={() => setSelected(role)}
               />
-              <span className="key-text">{k}</span>
+              <span className="agent-option-main">
+                <span className="agent-name">{formatAgentRole(role)}</span>
+                <span className="agent-id">{role}</span>
+              </span>
             </label>
           ))}
         </div>
         <div className="modal-actions">
           <button className="btn-secondary" onClick={onClose}>取消</button>
           <button className="btn-primary" onClick={() => onConfirm(selected)}>
-            确认并创建会话
+            创建会话
           </button>
         </div>
       </div>
