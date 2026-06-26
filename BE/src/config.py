@@ -66,4 +66,4 @@ class Config:
     }
 
     # Session 配置
-    SESSION_EXPIRE_HOURS = 24  # 24 小时过期
+    SESSION_EXPIRE_HOURS = int(os.getenv("SESSION_EXPIRE_HOURS", "24"))  # Session 过期时间（小时）
