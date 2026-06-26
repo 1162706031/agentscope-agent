@@ -58,7 +58,8 @@ testproject/
 │   │   │   ├── SOUL.md                 #   核心行为原则
 │   │   │   ├── AGENTS.md               #   工作规则与产品数据
 │   │   │   ├── MEMORY.md               #   长期记忆
-│   │   │   └── BOOTSTRAP.md            #   首次引导
+│   │   │   ├── BOOTSTRAP.md            #   首次引导
+│   │   │   └── CONFIG.json             #   工具/MCP/技能加载配置
 │   │   ├── sales/                      # 销售智能体
 │   │   ├── technical-engineer/         # 技术工程师智能体
 │   │   ├── production/                 # 生产流程智能体
@@ -451,7 +452,7 @@ system_prompt = load_agent_prompt("sales")
 **加载规则：**
 - 加载文件顺序: `PROFILE.md` → `SOUL.md` → `AGENTS.md`
 - 分隔符: `\n\n---\n\n`
-- 不加载: `MEMORY.md`、`BOOTSTRAP.md`
+- 不加载: `MEMORY.md`、`BOOTSTRAP.md`、`CONFIG.json`
 - 空文件自动跳过
 
 ### 3.4 技能 (Skill) 系统
@@ -721,7 +722,7 @@ type StreamMessage =
 
 ### 6.1 角色定义文件
 
-每个角色包含 5 个 markdown 文件：
+每个角色包含 5 个 markdown 文件和 1 个运行时配置文件：
 
 | 文件 | 加载到系统提示词 | 用途 |
 |------|:---:|------|
@@ -730,8 +731,32 @@ type StreamMessage =
 | `AGENTS.md` | 是 | 工作规则、领域知识、工具使用说明 |
 | `MEMORY.md` | 否 | 长期记忆存储（由 memory 技能维护） |
 | `BOOTSTRAP.md` | 否 | 首次运行引导（完成后应删除） |
+| `CONFIG.json` | 否 | 该角色允许加载的工具、MCP 客户端、技能 |
 
-### 6.2 Webassistance（总AI调度）
+### 6.2 Agent 运行时配置
+
+每个 agent 目录下的 `CONFIG.json` 控制该 agent 能使用哪些能力。后端创建 Toolkit 时会按配置白名单加载，未写入配置的工具、MCP、技能不会注册。
+
+```json
+{
+  "tools": ["view_text_file", "write_text_file", "insert_text_file"],
+  "mcps": ["web_search"],
+  "skills": ["memory"]
+}
+```
+
+**可配置工具名：**
+- `view_text_file`、`write_text_file`、`insert_text_file`：文本文件读写，主要供 memory 技能使用
+- `agent_browser`：旭丰官网页面导航
+- `sales_agent_tool`、`technical_agent_tool`、`production_agent_tool`：三个专业子智能体工具
+
+**可配置 MCP 名：**
+- `web_search`：外部 Web 搜索 MCP
+- `texttosql`：Text-to-SQL MCP
+
+**可配置技能名：** 使用 `BE/skills/` 下的目录名，例如 `memory`、`xufeng-material-navigator`、`company-intelligent-analysis`。
+
+### 6.3 Webassistance（总AI调度）
 
 **身份：** 旭丰小助手 — 官网 AI 客服，B2B 工业品助手
 
@@ -748,7 +773,7 @@ type StreamMessage =
 
 **可用工具：** 所有注册工具和技能
 
-### 6.3 sales（销售智能体）
+### 6.4 sales（销售智能体）
 
 **身份：** 旭丰销售顾问 — 10 年特钢行业销售经验
 
@@ -768,7 +793,7 @@ type StreamMessage =
 
 **环境变量切换：** `AGENT_ROLE=sales`
 
-### 6.4 technical-engineer（技术工程师智能体）
+### 6.5 technical-engineer（技术工程师智能体）
 
 **身份：** 旭丰技术顾问 — AI 材料工程师
 
@@ -788,7 +813,7 @@ type StreamMessage =
 
 **环境变量切换：** `AGENT_ROLE=technical-engineer`
 
-### 6.5 production（生产流程智能体）
+### 6.6 production（生产流程智能体）
 
 **身份：** 旭丰生产顾问 — 20 年特钢工厂管理经验
 
@@ -808,15 +833,15 @@ type StreamMessage =
 
 **环境变量切换：** `AGENT_ROLE=production`
 
-### 6.6 coder（编程助手）
+### 6.7 coder（编程助手）
 
 备选角色，用于编程开发场景。`AGENT_ROLE=coder`
 
-### 6.7 default（通用助手）
+### 6.8 default（通用助手）
 
 备选角色，默认通用 AI 助手。`AGENT_ROLE=default`（默认值）
 
-### 6.8 如何切换角色
+### 6.9 如何切换角色
 
 ```bash
 # 方式1：修改 .env 文件

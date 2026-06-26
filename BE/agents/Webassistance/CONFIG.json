@@ -1,0 +1,19 @@
+{
+  "tools": [
+    "view_text_file",
+    "write_text_file",
+    "insert_text_file",
+    "agent_browser",
+    "sales_agent_tool",
+    "technical_agent_tool",
+    "production_agent_tool"
+  ],
+  "mcps": [
+    "web_search"
+  ],
+  "skills": [
+    "memory",
+    "xufeng-material-navigator",
+    "company-intelligent-analysis"
+  ]
+}

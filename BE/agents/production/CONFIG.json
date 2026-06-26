@@ -1,0 +1,14 @@
+{
+  "tools": [
+    "view_text_file",
+    "write_text_file",
+    "insert_text_file"
+  ],
+  "mcps": [
+    "web_search",
+    "texttosql"
+  ],
+  "skills": [
+    "memory"
+  ]
+}

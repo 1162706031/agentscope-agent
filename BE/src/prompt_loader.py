@@ -9,7 +9,7 @@ SKILLS_DIR = Path(__file__).parent.parent / "skills"
 PROMPT_FILES = ["PROFILE.md", "SOUL.md", "AGENTS.md"]
 
 # 不加载到系统提示词的文件
-NON_PROMPT_FILES = ["MEMORY.md", "BOOTSTRAP.md"]
+NON_PROMPT_FILES = ["MEMORY.md", "BOOTSTRAP.md", "CONFIG.json"]
 
 
 def load_agent_prompt(role: str) -> str:

@@ -7,8 +7,7 @@ Three stateless specialist agent tools, each powered by a temporary ReActAgent:
 - production_agent_tool: Manufacturing process, quality control, production cycle
 
 Each sub-agent tool spawns a short-lived ReActAgent with its own mini Toolkit:
-- web-search MCP tool (HttpStatelessClient)
-- memory skill (reads/writes its own MEMORY.md)
+- tools, MCP clients, and skills declared in agents/{role}/CONFIG.json
 
 Stateless: ReActAgent + Toolkit live only during the tool call.
 No persistent agent instance, no conversation memory between calls.
@@ -20,10 +19,21 @@ from agentscope.model import OpenAIChatModel
 from agentscope.memory import InMemoryMemory
 from agentscope.formatter import OpenAIChatFormatter
 from agentscope.message import Msg, TextBlock, ToolUseBlock, ToolResultBlock
-from Mcp.web_search import _get_web_search_client
-from agentscope.tool import Toolkit, ToolResponse
+from agentscope.tool import (
+    Toolkit,
+    ToolResponse,
+    view_text_file,
+    write_text_file,
+    insert_text_file,
+)
 from config import Config
-from prompt_loader import load_agent_prompt, get_memory_path, SKILLS_DIR
+from prompt_loader import load_agent_prompt, get_memory_path
+from runtime_config import (
+    AgentRuntimeConfig,
+    load_agent_runtime_config,
+    register_configured_mcp_clients,
+    register_configured_skills,
+)
 
 
 class _SubReActAgent(ReActAgent):
@@ -87,24 +97,40 @@ def _get_model() -> OpenAIChatModel:
 
 # ==================== Sub-Agent Toolkit Factory ====================
 
-async def _build_sub_agent_toolkit() -> Toolkit:
+SUB_AGENT_TOOL_FUNCTIONS = {
+    "view_text_file": view_text_file,
+    "write_text_file": write_text_file,
+    "insert_text_file": insert_text_file,
+}
+
+
+def _register_sub_agent_tool_functions(
+    toolkit: Toolkit,
+    config: AgentRuntimeConfig,
+) -> None:
+    unknown = sorted(set(config.tools) - set(SUB_AGENT_TOOL_FUNCTIONS))
+    if unknown:
+        raise ValueError(
+            f"Unknown sub-agent tool(s): {unknown}. Available tools: "
+            f"{sorted(SUB_AGENT_TOOL_FUNCTIONS)}"
+        )
+
+    for tool_name in config.tools:
+        toolkit.register_tool_function(SUB_AGENT_TOOL_FUNCTIONS[tool_name])
+
+
+async def _build_sub_agent_toolkit(role: str) -> Toolkit:
     """Build a mini Toolkit for a sub-agent.
 
-    Each sub-agent gets:
-    - web-search MCP tools (all tools from the MCP server)
-    - memory skill (reads/writes MEMORY.md, path injected via system prompt)
-    - No other skills (no agent_browser, no xufeng-material-navigator, etc.)
+    Each sub-agent gets only the tools, MCP clients, and skills declared in
+    agents/{role}/CONFIG.json.
     """
     toolkit = Toolkit()
+    runtime_config = load_agent_runtime_config(role)
 
-    # Register web-search MCP (all tools from the server)
-    mcp_client = _get_web_search_client()
-    await toolkit.register_mcp_client(mcp_client)
-
-    # Register memory skill only
-    memory_skill_dir = SKILLS_DIR / "memory"
-    if memory_skill_dir.is_dir():
-        toolkit.register_agent_skill(str(memory_skill_dir))
+    _register_sub_agent_tool_functions(toolkit, runtime_config)
+    await register_configured_mcp_clients(toolkit, runtime_config)
+    register_configured_skills(toolkit, runtime_config)
 
     return toolkit
 
@@ -115,7 +141,7 @@ async def _run_sub_agent(role: str, question: str, context: str = "") -> str:
     """Run a sub-agent using AgentScope's native ReActAgent.
 
     This is a stateless, single-question call:
-    1. Build toolkit (web_search MCP + memory skill)
+    1. Build toolkit from agents/{role}/CONFIG.json
     2. Load specialist system prompt
     3. Create a temporary ReActAgent
     4. Send the question, wait for final answer
@@ -129,7 +155,7 @@ async def _run_sub_agent(role: str, question: str, context: str = "") -> str:
     Returns:
         The sub-agent's final text answer
     """
-    toolkit = await _build_sub_agent_toolkit()
+    toolkit = await _build_sub_agent_toolkit(role)
 
     # Build system prompt (PROFILE + SOUL + AGENTS)
     system_prompt = load_agent_prompt(role)

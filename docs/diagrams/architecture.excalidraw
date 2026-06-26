@@ -1,0 +1,120 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "hermes-agent",
+  "elements": [
+    {"type":"text","id":"title","x":400,"y":10,"text":"旭丰新材料 AI 智能客服 — 系统架构图","fontSize":24,"fontFamily":1,"strokeColor":"#1e1e1e","originalText":"旭丰新材料 AI 智能客服 — 系统架构图","autoResize":true},
+    {"type":"text","id":"subtitle","x":360,"y":44,"text":"AgentScope + FastAPI + React  |  多智能体协同  |  MCP 工具集成","fontSize":14,"fontFamily":1,"strokeColor":"#757575","originalText":"AgentScope + FastAPI + React  |  多智能体协同  |  MCP 工具集成","autoResize":true},
+
+    {"type":"rectangle","id":"docker","x":25,"y":68,"width":1150,"height":790,"roundness":{"type":3},"strokeColor":"#f59e0b","strokeWidth":1,"strokeStyle":"dashed","backgroundColor":"transparent","fillStyle":"solid","opacity":60},
+    {"type":"text","id":"t_docker","x":35,"y":70,"text":"Docker Container (BE:8080)","fontSize":12,"fontFamily":1,"strokeColor":"#f59e0b","originalText":"Docker Container (BE:8080)","autoResize":true},
+
+    {"type":"rectangle","id":"zone_fe","x":45,"y":95,"width":290,"height":310,"backgroundColor":"#dbe4ff","fillStyle":"solid","roundness":{"type":3},"strokeColor":"#4a9eed","strokeWidth":1,"opacity":30},
+    {"type":"text","id":"t_zone_fe","x":55,"y":98,"text":"前端层","fontSize":12,"fontFamily":1,"strokeColor":"#2563eb","originalText":"前端层","autoResize":true},
+
+    {"type":"rectangle","id":"zone_agent","x":350,"y":95,"width":560,"height":310,"backgroundColor":"#e5dbff","fillStyle":"solid","roundness":{"type":3},"strokeColor":"#8b5cf6","strokeWidth":1,"opacity":30},
+    {"type":"text","id":"t_zone_agent","x":360,"y":98,"text":"API + Agent 核心层","fontSize":12,"fontFamily":1,"strokeColor":"#7c3aed","originalText":"API + Agent 核心层","autoResize":true},
+
+    {"type":"rectangle","id":"zone_tools","x":45,"y":420,"width":1110,"height":420,"backgroundColor":"#d3f9d8","fillStyle":"solid","roundness":{"type":3},"strokeColor":"#22c55e","strokeWidth":1,"opacity":30},
+    {"type":"text","id":"t_zone_tools","x":55,"y":423,"text":"Tools & Skills 层","fontSize":16,"fontFamily":1,"strokeColor":"#15803d","originalText":"Tools & Skills 层","autoResize":true},
+
+    {"type":"rectangle","id":"user","x":75,"y":130,"width":110,"height":50,"roundness":{"type":3},"backgroundColor":"#f8f9fa","fillStyle":"solid","strokeColor":"#757575","strokeWidth":2,"boundElements":[{"id":"t_user","type":"text"},{"id":"a_user_fe","type":"arrow"}]},
+    {"type":"text","id":"t_user","x":80,"y":140,"width":100,"height":30,"text":"User\n浏览器 / HTTPS","fontSize":14,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"user","originalText":"User\n浏览器 / HTTPS","autoResize":true},
+
+    {"type":"rectangle","id":"frontend","x":70,"y":240,"width":230,"height":130,"roundness":{"type":3},"backgroundColor":"#a5d8ff","fillStyle":"solid","strokeColor":"#4a9eed","strokeWidth":2,"boundElements":[{"id":"t_frontend","type":"text"},{"id":"a_user_fe","type":"arrow"},{"id":"a_fe_be","type":"arrow"}]},
+    {"type":"text","id":"t_frontend","x":75,"y":245,"width":220,"height":120,"text":"Frontend\nReact 19 + TypeScript\nVite · SSE Streaming\nSPA 聊天应用\n(localStorage 管理)\nAPI Key 认证","fontSize":14,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"frontend","originalText":"Frontend\nReact 19 + TypeScript\nVite · SSE Streaming\nSPA 聊天应用\n(localStorage 管理)\nAPI Key 认证","autoResize":true},
+
+    {"type":"arrow","id":"a_user_fe","x":130,"y":182,"width":0,"height":56,"points":[[0,0],[0,56]],"strokeColor":"#4a9eed","strokeWidth":2,"endArrowhead":"arrow","startBinding":{"elementId":"user","fixedPoint":[0.5,1]},"endBinding":{"elementId":"frontend","fixedPoint":[0.5,0]},"boundElements":[{"id":"t_a_user_fe","type":"text"}]},
+    {"type":"text","id":"t_a_user_fe","x":142,"y":202,"width":36,"height":18,"text":"交互","fontSize":14,"fontFamily":1,"strokeColor":"#4a9eed","textAlign":"center","verticalAlign":"middle","containerId":"a_user_fe","originalText":"交互","autoResize":true},
+
+    {"type":"arrow","id":"a_fe_be","x":302,"y":305,"width":66,"height":0,"points":[[0,0],[66,0]],"strokeColor":"#4a9eed","strokeWidth":2,"endArrowhead":"arrow","startBinding":{"elementId":"frontend","fixedPoint":[1,0.5]},"endBinding":{"elementId":"fastapi","fixedPoint":[0,0.5]},"boundElements":[{"id":"t_a_fe_be","type":"text"}]},
+    {"type":"text","id":"t_a_fe_be","x":315,"y":288,"width":42,"height":18,"text":"REST/SSE","fontSize":14,"fontFamily":1,"strokeColor":"#4a9eed","textAlign":"center","verticalAlign":"middle","containerId":"a_fe_be","originalText":"REST/SSE","autoResize":true},
+
+    {"type":"rectangle","id":"fastapi","x":370,"y":120,"width":220,"height":180,"roundness":{"type":3},"backgroundColor":"#fff3bf","fillStyle":"solid","strokeColor":"#f59e0b","strokeWidth":2,"boundElements":[{"id":"t_fastapi","type":"text"},{"id":"a_fe_be","type":"arrow"},{"id":"a_be_agent","type":"arrow"}]},
+    {"type":"text","id":"t_fastapi","x":375,"y":125,"width":210,"height":20,"text":"FastAPI Gateway","fontSize":16,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"fastapi","originalText":"FastAPI Gateway","autoResize":true},
+
+    {"type":"rectangle","id":"api_auth","x":390,"y":155,"width":180,"height":45,"roundness":{"type":3},"backgroundColor":"#ffffff","fillStyle":"solid","strokeColor":"#f59e0b","strokeWidth":1.5,"boundElements":[{"id":"t_api_auth","type":"text"}]},
+    {"type":"text","id":"t_api_auth","x":395,"y":162,"width":170,"height":30,"text":"POST /auth\nAPI Key 验证","fontSize":14,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"api_auth","originalText":"POST /auth\nAPI Key 验证","autoResize":true},
+
+    {"type":"rectangle","id":"api_chat","x":390,"y":215,"width":180,"height":65,"roundness":{"type":3},"backgroundColor":"#ffffff","fillStyle":"solid","strokeColor":"#f59e0b","strokeWidth":1.5,"boundElements":[{"id":"t_api_chat","type":"text"}]},
+    {"type":"text","id":"t_api_chat","x":395,"y":222,"width":170,"height":50,"text":"POST /chat\nSSE 流式响应\n会话创建与路由","fontSize":14,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"api_chat","originalText":"POST /chat\nSSE 流式响应\n会话创建与路由","autoResize":true},
+
+    {"type":"rectangle","id":"agent_core","x":630,"y":100,"width":260,"height":290,"roundness":{"type":3},"backgroundColor":"#b2f2bb","fillStyle":"solid","strokeColor":"#22c55e","strokeWidth":2,"boundElements":[{"id":"t_agent_core","type":"text"},{"id":"a_be_agent","type":"arrow"},{"id":"a_agent_ds","type":"arrow"},{"id":"a_agent_tools","type":"arrow"}]},
+    {"type":"text","id":"t_agent_core","x":635,"y":105,"width":250,"height":20,"text":"AgentScope Core","fontSize":16,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"agent_core","originalText":"AgentScope Core","autoResize":true},
+
+    {"type":"rectangle","id":"session_mgr","x":650,"y":135,"width":220,"height":45,"roundness":{"type":3},"backgroundColor":"#d3f9d8","fillStyle":"solid","strokeColor":"#22c55e","strokeWidth":1.5,"boundElements":[{"id":"t_session_mgr","type":"text"}]},
+    {"type":"text","id":"t_session_mgr","x":655,"y":142,"width":210,"height":30,"text":"SessionManager\n24h 过期 · 每小时清理","fontSize":14,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"session_mgr","originalText":"SessionManager\n24h 过期 · 每小时清理","autoResize":true},
+
+    {"type":"rectangle","id":"react_agent","x":650,"y":195,"width":220,"height":75,"roundness":{"type":3},"backgroundColor":"#d3f9d8","fillStyle":"solid","strokeColor":"#22c55e","strokeWidth":1.5,"boundElements":[{"id":"t_react_agent","type":"text"}]},
+    {"type":"text","id":"t_react_agent","x":655,"y":200,"width":210,"height":65,"text":"MetatoolReActAgent\nRole: Webassistance\nReAct: 思考 > 行动 > 观察\n(总调度 Agent)","fontSize":14,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"react_agent","originalText":"MetatoolReActAgent\nRole: Webassistance\nReAct: 思考 > 行动 > 观察\n(总调度 Agent)","autoResize":true},
+
+    {"type":"rectangle","id":"persona","x":650,"y":285,"width":220,"height":55,"roundness":{"type":3},"backgroundColor":"#d3f9d8","fillStyle":"solid","strokeColor":"#22c55e","strokeWidth":1.5,"boundElements":[{"id":"t_persona","type":"text"}]},
+    {"type":"text","id":"t_persona","x":655,"y":290,"width":210,"height":45,"text":"Persona 提示词\nPROFILE · SOUL · AGENTS\nMEMORY · BOOTSTRAP","fontSize":14,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"persona","originalText":"Persona 提示词\nPROFILE · SOUL · AGENTS\nMEMORY · BOOTSTRAP","autoResize":true},
+
+    {"type":"arrow","id":"a_be_agent","x":592,"y":210,"width":36,"height":0,"points":[[0,0],[36,0]],"strokeColor":"#22c55e","strokeWidth":2,"endArrowhead":"arrow","startBinding":{"elementId":"fastapi","fixedPoint":[1,0.5]},"endBinding":{"elementId":"agent_core","fixedPoint":[0,0.38]},"boundElements":[{"id":"t_a_be_agent","type":"text"}]},
+    {"type":"text","id":"t_a_be_agent","x":595,"y":195,"width":36,"height":18,"text":"create","fontSize":14,"fontFamily":1,"strokeColor":"#22c55e","textAlign":"center","verticalAlign":"middle","containerId":"a_be_agent","originalText":"create","autoResize":true},
+
+    {"type":"arrow","id":"a_agent_ds","x":892,"y":175,"width":66,"height":-25,"points":[[0,0],[66,-25]],"strokeColor":"#8b5cf6","strokeWidth":2,"endArrowhead":"arrow","startBinding":{"elementId":"agent_core","fixedPoint":[1,0.25]},"endBinding":{"elementId":"deepseek","fixedPoint":[0,0.5]},"boundElements":[{"id":"t_a_agent_ds","type":"text"}]},
+    {"type":"text","id":"t_a_agent_ds","x":908,"y":153,"width":30,"height":18,"text":"API","fontSize":14,"fontFamily":1,"strokeColor":"#8b5cf6","textAlign":"center","verticalAlign":"middle","containerId":"a_agent_ds","originalText":"API","autoResize":true},
+
+    {"type":"arrow","id":"a_agent_tools","x":760,"y":392,"width":0,"height":26,"points":[[0,0],[0,26]],"strokeColor":"#f59e0b","strokeWidth":2,"endArrowhead":"arrow","startBinding":{"elementId":"agent_core","fixedPoint":[0.5,1]},"endBinding":{"elementId":"zone_tools","fixedPoint":[0.65,0]},"boundElements":[{"id":"t_a_agent_tools","type":"text"}]},
+    {"type":"text","id":"t_a_agent_tools","x":772,"y":397,"width":60,"height":18,"text":"tool_call","fontSize":14,"fontFamily":1,"strokeColor":"#f59e0b","textAlign":"center","verticalAlign":"middle","containerId":"a_agent_tools","originalText":"tool_call","autoResize":true},
+
+    {"type":"rectangle","id":"deepseek","x":960,"y":125,"width":200,"height":75,"roundness":{"type":3},"backgroundColor":"#d0bfff","fillStyle":"solid","strokeColor":"#8b5cf6","strokeWidth":2,"boundElements":[{"id":"t_deepseek","type":"text"},{"id":"a_agent_ds","type":"arrow"},{"id":"a_sub_ds","type":"arrow"}]},
+    {"type":"text","id":"t_deepseek","x":965,"y":130,"width":190,"height":65,"text":"DeepSeek API\ndeepseek-chat\n(OpenAI 兼容)\nLLM 推理引擎","fontSize":14,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"deepseek","originalText":"DeepSeek API\ndeepseek-chat\n(OpenAI 兼容)\nLLM 推理引擎","autoResize":true},
+
+    {"type":"rectangle","id":"mcp_server","x":960,"y":230,"width":200,"height":65,"roundness":{"type":3},"backgroundColor":"#ffd8a8","fillStyle":"solid","strokeColor":"#f59e0b","strokeWidth":2,"boundElements":[{"id":"t_mcp_server","type":"text"},{"id":"a_mcp_ext","type":"arrow"}]},
+    {"type":"text","id":"t_mcp_server","x":965,"y":235,"width":190,"height":55,"text":"Web-Search MCP Server\n47.94.179.114:3000\n百度 · 必应 · DuckDuckGo","fontSize":14,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"mcp_server","originalText":"Web-Search MCP Server\n47.94.179.114:3000\n百度 · 必应 · DuckDuckGo","autoResize":true},
+
+    {"type":"text","id":"legend_title","x":960,"y":310,"text":"图例","fontSize":16,"fontFamily":1,"strokeColor":"#1e1e1e","originalText":"图例","autoResize":true},
+
+    {"type":"rectangle","id":"leg_fe","x":960,"y":338,"width":14,"height":9,"roundness":{"type":2},"backgroundColor":"#a5d8ff","fillStyle":"solid","strokeColor":"#4a9eed","strokeWidth":1},
+    {"type":"text","id":"t_leg_fe","x":980,"y":333,"text":"前端","fontSize":13,"fontFamily":1,"strokeColor":"#1e1e1e","originalText":"前端","autoResize":true},
+
+    {"type":"rectangle","id":"leg_agent","x":1030,"y":338,"width":14,"height":9,"roundness":{"type":2},"backgroundColor":"#b2f2bb","fillStyle":"solid","strokeColor":"#22c55e","strokeWidth":1},
+    {"type":"text","id":"t_leg_agent","x":1050,"y":333,"text":"Agent","fontSize":13,"fontFamily":1,"strokeColor":"#1e1e1e","originalText":"Agent","autoResize":true},
+
+    {"type":"rectangle","id":"leg_api","x":960,"y":355,"width":14,"height":9,"roundness":{"type":2},"backgroundColor":"#fff3bf","fillStyle":"solid","strokeColor":"#f59e0b","strokeWidth":1},
+    {"type":"text","id":"t_leg_api","x":980,"y":350,"text":"API","fontSize":13,"fontFamily":1,"strokeColor":"#1e1e1e","originalText":"API","autoResize":true},
+
+    {"type":"rectangle","id":"leg_ext","x":1030,"y":355,"width":14,"height":9,"roundness":{"type":2},"backgroundColor":"#d0bfff","fillStyle":"solid","strokeColor":"#8b5cf6","strokeWidth":1},
+    {"type":"text","id":"t_leg_ext","x":1050,"y":350,"text":"LLM","fontSize":13,"fontFamily":1,"strokeColor":"#1e1e1e","originalText":"LLM","autoResize":true},
+
+    {"type":"rectangle","id":"leg_mcp","x":960,"y":372,"width":14,"height":9,"roundness":{"type":2},"backgroundColor":"#ffd8a8","fillStyle":"solid","strokeColor":"#f59e0b","strokeWidth":1},
+    {"type":"text","id":"t_leg_mcp","x":980,"y":367,"text":"MCP","fontSize":13,"fontFamily":1,"strokeColor":"#1e1e1e","originalText":"MCP","autoResize":true},
+
+    {"type":"rectangle","id":"leg_dock","x":1030,"y":372,"width":30,"height":1,"backgroundColor":"transparent","fillStyle":"solid","strokeColor":"#f59e0b","strokeWidth":1,"strokeStyle":"dashed"},
+    {"type":"text","id":"t_leg_dock","x":1065,"y":367,"text":"边界","fontSize":13,"fontFamily":1,"strokeColor":"#1e1e1e","originalText":"边界","autoResize":true},
+
+    {"type":"text","id":"sub_label","x":120,"y":500,"text":"子 Agent 工具 (短生命周期，各带 web-search + memory)","fontSize":13,"fontFamily":1,"strokeColor":"#757575","originalText":"子 Agent 工具 (短生命周期，各带 web-search + memory)","autoResize":true},
+
+    {"type":"rectangle","id":"sales_agent","x":100,"y":525,"width":155,"height":75,"roundness":{"type":3},"backgroundColor":"#fff3bf","fillStyle":"solid","strokeColor":"#f59e0b","strokeWidth":1.5,"boundElements":[{"id":"t_sales_agent","type":"text"},{"id":"a_sub_ds","type":"arrow"}]},
+    {"type":"text","id":"t_sales_agent","x":105,"y":530,"width":145,"height":65,"text":"sales_agent_tool\n产品销售\n报价\n库存查询","fontSize":14,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"sales_agent","originalText":"sales_agent_tool\n产品销售\n报价\n库存查询","autoResize":true},
+
+    {"type":"rectangle","id":"tech_agent","x":275,"y":525,"width":155,"height":75,"roundness":{"type":3},"backgroundColor":"#fff3bf","fillStyle":"solid","strokeColor":"#f59e0b","strokeWidth":1.5,"boundElements":[{"id":"t_tech_agent","type":"text"}]},
+    {"type":"text","id":"t_tech_agent","x":280,"y":530,"width":145,"height":65,"text":"technical_agent_tool\n技术支持\n失效分析\n热处理 · 材质","fontSize":14,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"tech_agent","originalText":"technical_agent_tool\n技术支持\n失效分析\n热处理 · 材质","autoResize":true},
+
+    {"type":"rectangle","id":"prod_agent","x":450,"y":525,"width":155,"height":75,"roundness":{"type":3},"backgroundColor":"#fff3bf","fillStyle":"solid","strokeColor":"#f59e0b","strokeWidth":1.5,"boundElements":[{"id":"t_prod_agent","type":"text"}]},
+    {"type":"text","id":"t_prod_agent","x":455,"y":530,"width":145,"height":65,"text":"production_agent_tool\n生产支持\n工艺 · 质检\n交期管理","fontSize":14,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"prod_agent","originalText":"production_agent_tool\n生产支持\n工艺 · 质检\n交期管理","autoResize":true},
+
+    {"type":"rectangle","id":"agent_skills","x":640,"y":520,"width":160,"height":140,"roundness":{"type":3},"backgroundColor":"#d0bfff","fillStyle":"solid","strokeColor":"#8b5cf6","strokeWidth":1.5,"boundElements":[{"id":"t_agent_skills","type":"text"},{"id":"a_sub_mcp","type":"arrow"}]},
+    {"type":"text","id":"t_agent_skills","x":645,"y":525,"width":150,"height":130,"text":"Agent Skills\n\n智能分析\n产品分析/对比\n\n长期记忆\n用户偏好/历史\n\n产品导航\n官网页面导航","fontSize":14,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"agent_skills","originalText":"Agent Skills\n\n智能分析\n产品分析/对比\n\n长期记忆\n用户偏好/历史\n\n产品导航\n官网页面导航","autoResize":true},
+
+    {"type":"rectangle","id":"browser_tool","x":830,"y":520,"width":145,"height":65,"roundness":{"type":3},"backgroundColor":"#a5d8ff","fillStyle":"solid","strokeColor":"#4a9eed","strokeWidth":1.5,"boundElements":[{"id":"t_browser_tool","type":"text"}]},
+    {"type":"text","id":"t_browser_tool","x":835,"y":525,"width":135,"height":55,"text":"agent_browser\n官网页面导航\nURL → 内容提取\n截图/视觉分析","fontSize":14,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"browser_tool","originalText":"agent_browser\n官网页面导航\nURL → 内容提取\n截图/视觉分析","autoResize":true},
+
+    {"type":"rectangle","id":"mcp_client","x":830,"y":600,"width":145,"height":65,"roundness":{"type":3},"backgroundColor":"#ffd8a8","fillStyle":"solid","strokeColor":"#f59e0b","strokeWidth":1.5,"boundElements":[{"id":"t_mcp_client","type":"text"},{"id":"a_mcp_ext","type":"arrow"}]},
+    {"type":"text","id":"t_mcp_client","x":835,"y":605,"width":135,"height":55,"text":"web-search MCP\nStreamable HTTP\n多引擎搜索\n百度·必应·DuckDuckGo","fontSize":14,"fontFamily":1,"strokeColor":"#1e1e1e","textAlign":"center","verticalAlign":"middle","containerId":"mcp_client","originalText":"web-search MCP\nStreamable HTTP\n多引擎搜索\n百度·必应·DuckDuckGo","autoResize":true},
+
+    {"type":"arrow","id":"a_sub_ds","x":255,"y":560,"width":700,"height":-410,"points":[[0,0],[700,-410]],"strokeColor":"#8b5cf6","strokeWidth":1.5,"strokeStyle":"dashed","endArrowhead":"arrow","startBinding":{"elementId":"sales_agent","fixedPoint":[1,0.5]},"endBinding":{"elementId":"deepseek","fixedPoint":[0.25,1]},"boundElements":[{"id":"t_a_sub_ds","type":"text"}]},
+    {"type":"text","id":"t_a_sub_ds","x":540,"y":335,"text":"LLM call (短生命周期子Agent)","fontSize":14,"fontFamily":1,"strokeColor":"#8b5cf6","textAlign":"center","verticalAlign":"middle","containerId":"a_sub_ds","originalText":"LLM call (短生命周期子Agent)","autoResize":true},
+
+    {"type":"arrow","id":"a_mcp_ext","x":905,"y":630,"width":50,"height":-380,"points":[[0,0],[50,-380]],"strokeColor":"#f59e0b","strokeWidth":1.5,"strokeStyle":"dashed","endArrowhead":"arrow","startBinding":{"elementId":"mcp_client","fixedPoint":[0.5,0.5]},"endBinding":{"elementId":"mcp_server","fixedPoint":[0,0.5]},"boundElements":[{"id":"t_a_mcp_ext","type":"text"}]},
+    {"type":"text","id":"t_a_mcp_ext","x":912,"y":430,"text":"HTTP","fontSize":14,"fontFamily":1,"strokeColor":"#f59e0b","textAlign":"center","verticalAlign":"middle","containerId":"a_mcp_ext","originalText":"HTTP","autoResize":true},
+
+    {"type":"arrow","id":"a_sub_mcp","x":802,"y":560,"width":26,"height":0,"points":[[0,0],[26,0]],"strokeColor":"#f59e0b","strokeWidth":1.5,"strokeStyle":"dashed","endArrowhead":"arrow","startBinding":{"elementId":"agent_skills","fixedPoint":[1,0.28]},"endBinding":{"elementId":"mcp_client","fixedPoint":[0,0.28]}}
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff"
+  }
+}

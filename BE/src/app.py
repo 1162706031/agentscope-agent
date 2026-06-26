@@ -73,7 +73,13 @@ def verify_api_key(api_key: str) -> dict:
 # ==================== API 端点 ====================
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "active_sessions": session_manager.get_active_count()}
+    return {
+        "status": "healthy",
+        "active_sessions": session_manager.get_active_count(),
+        "model": Config.get_model_info(),
+        "agent_role": Config.AGENT_ROLE,
+        "port": Config.PORT,
+    }
 
 
 @app.post("/auth", response_model=AuthResponse)

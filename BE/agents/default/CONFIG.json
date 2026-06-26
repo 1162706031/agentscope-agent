@@ -1,0 +1,11 @@
+{
+  "tools": [
+    "view_text_file",
+    "write_text_file",
+    "insert_text_file"
+  ],
+  "mcps": [],
+  "skills": [
+    "memory"
+  ]
+}

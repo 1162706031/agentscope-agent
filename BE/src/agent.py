@@ -17,7 +17,12 @@ from config import Config
 from prompt_loader import (
     load_agent_prompt,
     get_memory_context_prompt,
-    SKILLS_DIR,
+)
+from runtime_config import (
+    AgentRuntimeConfig,
+    load_agent_runtime_config,
+    register_configured_mcp_clients,
+    register_configured_skills,
 )
 from tools.agent_browser import agent_browser
 from tools.sub_agent_tools import (
@@ -25,7 +30,18 @@ from tools.sub_agent_tools import (
     technical_agent_tool,
     production_agent_tool,
 )
-from typing import Dict, Optional, Any
+from typing import Dict, Optional
+
+
+TOOL_FUNCTIONS = {
+    "view_text_file": view_text_file,
+    "write_text_file": write_text_file,
+    "insert_text_file": insert_text_file,
+    "agent_browser": agent_browser,
+    "sales_agent_tool": sales_agent_tool,
+    "technical_agent_tool": technical_agent_tool,
+    "production_agent_tool": production_agent_tool,
+}
 
 def _build_sys_prompt(role: str) -> str:
     """构建完整的系统提示词：人设 + 技能提示 + memory 路径上下文"""
@@ -34,31 +50,25 @@ def _build_sys_prompt(role: str) -> str:
     return persona + memory_ctx
 
 
-async def _create_toolkit() -> Toolkit:
-    """创建并配置 Toolkit，注册内置工具、MCP 工具和 Agent 技能"""
+def _register_tool_functions(toolkit: Toolkit, config: AgentRuntimeConfig) -> None:
+    unknown = sorted(set(config.tools) - set(TOOL_FUNCTIONS))
+    if unknown:
+        raise ValueError(
+            f"Unknown tool(s): {unknown}. Available tools: {sorted(TOOL_FUNCTIONS)}"
+        )
+
+    for tool_name in config.tools:
+        toolkit.register_tool_function(TOOL_FUNCTIONS[tool_name])
+
+
+async def _create_toolkit(role: str) -> Toolkit:
+    """创建并配置 Toolkit，按 agent 配置注册工具、MCP 和技能"""
     toolkit = Toolkit()
+    runtime_config = load_agent_runtime_config(role)
 
-    # 注册内置文本文件工具（用于 memory 技能读写 MEMORY.md）
-    toolkit.register_tool_function(view_text_file)
-    toolkit.register_tool_function(write_text_file)
-    toolkit.register_tool_function(insert_text_file)
-
-    # 注册旭丰新材料官网导航工具
-    toolkit.register_tool_function(agent_browser)
-
-    # 注册三个专业子智能体工具（stateless，一次LLM调用）
-    # - sales_agent_tool：产品推荐、价格查询、报价生成、库存确认
-    # - technical_agent_tool：失效分析、热处理建议、性能对比
-    # - production_agent_tool：工艺解释、流程检查、交期预估
-    toolkit.register_tool_function(sales_agent_tool)
-    toolkit.register_tool_function(technical_agent_tool)
-    toolkit.register_tool_function(production_agent_tool)
-
-
-    # 注册 agent skill 目录
-    for skill_dir in SKILLS_DIR.iterdir():
-        if skill_dir.is_dir() and not skill_dir.name.startswith("."):
-            toolkit.register_agent_skill(str(skill_dir))
+    _register_tool_functions(toolkit, runtime_config)
+    await register_configured_mcp_clients(toolkit, runtime_config)
+    register_configured_skills(toolkit, runtime_config)
 
     return toolkit
 
@@ -137,9 +147,10 @@ class AgentSession:
         self.created_at = datetime.now()
         self.last_accessed = datetime.now()
 
-        toolkit = await _create_toolkit()
+        role = Config.AGENT_ROLE
+        toolkit = await _create_toolkit(role)
 
-        sys_prompt = _build_sys_prompt(Config.AGENT_ROLE)
+        sys_prompt = _build_sys_prompt(role)
         skill_prompt = toolkit.get_agent_skill_prompt()
         if skill_prompt:
             sys_prompt += "\n\n" + skill_prompt
