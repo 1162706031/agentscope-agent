@@ -1,4 +1,4 @@
-agentscope>=1.0.14
+agentscope>=1.0.14,<2
 agentscope-runtime>=1.1.0
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
