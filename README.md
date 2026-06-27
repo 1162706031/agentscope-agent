@@ -958,9 +958,9 @@ Step 4: 多智能体协同整合
 - 用户询问牌号对照表、规格表
 
 **核心功能：**
-- 自动匹配 32 款产品到对应的官网页面 URL
+- 根据页面关键词从受控映射中选择 32 款产品及常用页面的官网 URL
 - 调用 `agent_browser` 工具触发前端页面导航
-- 大小写不敏感的牌号匹配
+- 支持大小写、分隔符和轻微拼写错误的模糊匹配
 
 ---
 
@@ -969,16 +969,16 @@ Step 4: 多智能体协同整合
 ### 8.1 agent_browser（官网导航）
 
 ```python
-async def agent_browser(url: str, content: str) -> ToolResponse:
+async def agent_browser(keyword: str, content: str) -> ToolResponse:
 ```
 
 **用途：** 导航用户浏览器到旭丰新材料官网的指定页面。
 
 **参数：**
-- `url` — 相对路径（如 `/products/hot-work/h13/`）或完整 URL
+- `keyword` — 页面关键词（如 `H13`、`冷作模具钢`、`联系方式`），允许轻微拼写错误
 - `content` — 页面简介（产品硬度、典型应用等）
 
-**实现原理：** 返回 `ToolResponse` 并附带 `metadata: {action: "page_navigation", payload: {url, content}}`，由 `MetatoolReActAgent._acting()` 将 metadata 复制到 `Msg` 上，SSE 流式响应将其作为 `action` 事件发送给前端，前端据此导航。
+**实现原理：** 工具对关键词进行 Unicode、大小写和分隔符归一化，依次执行精确、包含和相似度匹配，只从内部受控页面注册表选择 URL。匹配成功后返回 `ToolResponse` 并附带 `metadata: {action: "page_navigation", payload: {url, content}}`；匹配失败则返回错误且不产生导航 metadata。`MetatoolReActAgent._acting()` 将成功结果的 metadata 复制到 `Msg` 上，SSE 流式响应再将其作为 `action` 事件发送给前端。
 
 ### 8.2 web_search（MCP 网络搜索）
 

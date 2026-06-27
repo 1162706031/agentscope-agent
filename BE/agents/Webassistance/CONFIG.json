@@ -5,10 +5,10 @@
     "insert_text_file",
     "sales_agent_tool",
     "technical_agent_tool",
-    "production_agent_tool"
-  ],
+    "production_agent_tool",
+    "agent_browser"
+    ],
   "mcps": [
-    "web_search"
   ],
   "skills": [
     "memory",
